@@ -1,0 +1,1928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<title>3D Globe — Liquid Glass</title>
+<meta name="description" content="Interactive 3D Earth globe with a liquid-glass segmented pill nav and shooting-star background." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300;1,9..144,500;1,9..144,700&display=swap" rel="stylesheet" />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body{margin:0;padding:0;background:#000;color:#fff;height:100%;overflow:hidden;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;overscroll-behavior:none;touch-action:manipulation;}
+  .root{position:fixed;inset:0;background:#000;color:#e8edf5;}
+
+  #stars, #shooting { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #stars { z-index: 0; }
+  #shooting { z-index: 1; }
+  #globe-canvas{position:fixed;inset:0;z-index:2;display:block;touch-action:none;background:transparent;}
+
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px;padding-top:calc(18px + env(safe-area-inset-top,0px));pointer-events:none;width:100%;}
+  .nav { position: relative; display: inline-flex; align-items: center; gap: 8px; pointer-events:auto; max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .nav::-webkit-scrollbar { display: none; }
+  .gbtn {
+    position: relative; isolation: isolate; appearance: none; border: 0; cursor: pointer;
+    border-radius: 9999px; padding: 9px 16px; font-size: 13px; font-weight: 500;
+    letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,0.55);
+    background: transparent; transition: transform .3s ease, color .3s ease;
+    font-family: inherit; white-space: nowrap; flex-shrink: 0;
+  }
+  .gbtn:hover { color: rgba(255,255,255,0.85); transform: scale(1.03); }
+  .gbtn:active { transform: scale(0.96); }
+  .gbtn .lens {
+    position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+    background-color: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px) url(#liquid-distort) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.10),
+      inset 1.8px 3px 0 -2px rgba(255,255,255,0.9),
+      inset -2px -2px 0 -2px rgba(255,255,255,0.8),
+      inset -3px -8px 1px -6px rgba(255,255,255,0.6),
+      inset -0.3px -1px 4px 0 rgba(0,0,0,0.12),
+      inset -1.5px 2.5px 0 -2px rgba(0,0,0,0.2),
+      inset 0 3px 4px -2px rgba(0,0,0,0.2),
+      inset 2px -6.5px 1px -4px rgba(0,0,0,0.1),
+      0 1px 5px 0 rgba(0,0,0,0.1),
+      0 12px 32px 0 rgba(0,0,0,0.35);
+  }
+  .gbtn .num { margin-right: 6px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.45); }
+  .gbtn.active { color: #fff; }
+  .gbtn.active .num { color: rgba(255,255,255,0.95); }
+  .active-pill {
+    position: absolute; top: 0; left: 0; height: 100%; border-radius: 9999px;
+    background: linear-gradient(180deg, #4f8bff 0%, #2563eb 100%);
+    box-shadow: 0 8px 24px rgba(37,99,235,0.55), inset 0 1px 0 rgba(255,255,255,0.4);
+    z-index: 0;
+    transition: transform 700ms cubic-bezier(.34,1.56,.64,1), width 700ms cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  .gbtn > span.label { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+
+  .glass {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px) url(#liquid-distort) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.10),
+      inset 1.8px 3px 0 -2px rgba(255,255,255,0.7),
+      inset -2px -2px 0 -2px rgba(255,255,255,0.55),
+      inset 0 3px 4px -2px rgba(0,0,0,0.2),
+      0 12px 32px 0 rgba(0,0,0,0.35);
+  }
+ .statepanel{position:fixed;left:14px;top:calc(76px + env(safe-area-inset-top,0px));z-index:10;width:420px;max-width:calc(100vw - 28px);max-height:calc(100vh - 140px);display:flex;flex-direction:column;border-radius:20px;padding:18px;color:#e8edf5;opacity:1;transform:translateY(0) scale(1);transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1),filter .55s cubic-bezier(.4,0,.2,1);will-change:opacity,transform,filter;}
+  .statepanel h3{margin:0 0 6px;font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;}
+  .statepanel .sub{font-size:12px;color:#a0aec0;line-height:1.4;margin-bottom:14px;}
+  .statepanel .counts{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .statepanel .ct{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);}
+  .statepanel .ct .v{font-size:20px;font-weight:700;line-height:1;}
+  .statepanel .ct .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#a0aec0;}
+  .statepanel .ct.p .v{color:#22c55e;}
+  .statepanel .ct.b .v{color:#ef4444;}
+  .statepanel .ct.n .v{color:#9ca3af;}
+  .statepanel .search-wrap{position:relative;display:flex;align-items:center;margin-bottom:12px;}
+  .statepanel .search-ic{position:absolute;left:12px;color:#94a3b8;pointer-events:none;}
+  .statepanel #sp-search{flex:1;width:100%;font:inherit;font-size:14px;color:#e8edf5;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 36px 11px 36px;outline:none;transition:border-color .18s ease,background .18s ease;-webkit-appearance:none;appearance:none;}
+  .statepanel #sp-search::placeholder{color:#94a3b8;}
+  .statepanel #sp-search:focus{border-color:rgba(79,139,255,0.6);background:rgba(255,255,255,0.09);}
+  .statepanel #sp-search::-webkit-search-cancel-button{display:none;}
+  .statepanel .search-clear{position:absolute;right:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,0.10);color:#e8edf5;font-size:18px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;}
+  .statepanel .search-wrap.has-value .search-clear{display:flex;}
+  .statepanel .sp-empty{padding:14px 6px;color:#94a3b8;font-size:13px;text-align:center;}
+  .statepanel .list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.18) transparent;-webkit-overflow-scrolling:touch;}
+  .statepanel .list::-webkit-scrollbar{width:6px;}
+  .statepanel .list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:3px;}
+  .stitem{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:500;color:#e8edf5;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .12s ease;text-align:left;min-height:44px;}
+  .stitem:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.16);}
+  .stitem:active{transform:scale(0.98);}
+  .stitem .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.25);flex:none;}
+  .stitem .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .stitem .badge{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,0.08);color:#cbd5e1;}
+  .stitem.preferred{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.5);color:#bbf7d0;}
+  .stitem.preferred .dot{background:#22c55e;box-shadow:0 0 10px #22c55e;}
+  .stitem.preferred .badge{background:rgba(34,197,94,0.25);color:#bbf7d0;}
+  .stitem.blacklisted{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.5);color:#fecaca;}
+  .stitem.blacklisted .dot{background:#ef4444;box-shadow:0 0 10px #ef4444;}
+  .stitem.blacklisted .badge{background:rgba(239,68,68,0.25);color:#fecaca;}
+  .stitem .rank{display:none;flex:none;width:26px;height:26px;border-radius:50%;background:rgba(34,197,94,0.3);color:#bbf7d0;font-size:11px;font-weight:800;align-items:center;justify-content:center;letter-spacing:0;}
+  .stitem.preferred .rank{display:flex;}
+  .stitem.preferred .dot{display:none;}
+  .sp-continue{margin-top:12px;width:100%;font:inherit;font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#4f8bff 0%,#2563eb 100%);border:0;border-radius:12px;padding:13px 16px;cursor:pointer;box-shadow:0 8px 24px rgba(37,99,235,0.45),inset 0 1px 0 rgba(255,255,255,0.35);transition:transform .12s ease,filter .18s ease;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .sp-continue:hover{filter:brightness(1.08);}
+  .sp-continue:active{transform:scale(0.98);}
+ .sp-back{position:fixed;left:14px;top:calc(76px + env(safe-area-inset-top,0px));z-index:11;display:none;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#e8edf5;background:rgba(255,255,255,0.05);backdrop-filter:blur(10px) url(#liquid-distort) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);border:1px solid rgba(255,255,255,0.10);border-radius:999px;padding:10px 16px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10),inset 1.8px 3px 0 -2px rgba(255,255,255,0.8),inset -2px -2px 0 -2px rgba(255,255,255,0.6),0 8px 24px rgba(0,0,0,0.35);opacity:0;transform:translateY(-6px) scale(.98);transition:transform .35s cubic-bezier(.4,0,.2,1),filter .18s ease,background .18s ease,opacity .35s cubic-bezier(.4,0,.2,1);}
+ .sp-back:hover{filter:brightness(1.15);background:rgba(255,255,255,0.09);}
+ .sp-back:active{transform:scale(0.97);}
+ .sp-back.show{display:inline-flex;opacity:1;transform:translateY(0) scale(1);}
+   #globe-canvas{transition:filter 1.2s cubic-bezier(.4,0,.2,1);}
+   #globe-canvas.quota-blur{filter:blur(8px) saturate(1.2) brightness(.82);}
+   .qstage::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 90% at 50% 40%, rgba(8,10,16,0.32), rgba(4,6,10,0.55) 75%);backdrop-filter:blur(0px) saturate(100%);opacity:0;transition:opacity .9s cubic-bezier(.4,0,.2,1), backdrop-filter 1.1s cubic-bezier(.4,0,.2,1);pointer-events:none;}
+   .qstage.show::before{opacity:1; backdrop-filter:blur(4px) saturate(120%);}
+
+   .qstage{
+     position:fixed; inset:0; z-index:9; pointer-events:none;
+     display:grid; grid-template-rows: 1fr auto;
+     opacity:0; transition:opacity .7s cubic-bezier(.4,0,.2,1);
+     color:#e8edf5; font-family:'DM Sans',sans-serif;
+   }
+   .qstage.show{opacity:1; pointer-events:auto;}
+   .qstage.show .qhead, .qstage.show .qbar{transform:none; opacity:1;}
+   .qstage.show.tabs-ready .qzone{transform:none; opacity:1; filter:blur(0); }
+
+   .qsplit{
+     display:grid; grid-template-columns:1fr 1fr; align-items:stretch; 
+     padding: calc(110px + env(safe-area-inset-top, 0px)) 32px 24px; 
+     gap:28px; min-height:0; width:100%; max-width:1320px; margin:0 auto; box-sizing:border-box;
+     overflow-y:auto; scrollbar-width:none;
+   }
+   .qsplit::-webkit-scrollbar { display: none; }
+   .qzone{
+     position:relative; padding:34px 38px 26px;
+     transform:translateY(28px) scale(.985); opacity:0; filter:blur(6px);
+     cursor:pointer; min-width:0; min-height:0;
+     border-radius:26px;
+     transition:transform .7s cubic-bezier(.4,0,.2,1), opacity .7s cubic-bezier(.4,0,.2,1), filter .7s cubic-bezier(.4,0,.2,1), background .35s, box-shadow .35s, border-color .35s;
+     border:1px solid rgba(255,255,255,0.12);
+     background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+     backdrop-filter:blur(22px) saturate(150%);
+     box-shadow:inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 48px rgba(0,0,0,0.45);
+     overflow:hidden;
+   }
+   .qstage.show.tabs-ready .qzone:nth-child(1){transition-delay:0s, 0s, 0s, .15s, .15s, .15s;}
+   .qstage.show.tabs-ready .qzone:nth-child(2){transition-delay:.12s, .12s, .12s, .25s, .25s, .25s;}
+   .qzone + .qzone{border-left:1px solid rgba(255,255,255,0.12);}
+  .qzone::before{
+    content:attr(data-num);
+    position:absolute; top:-18px; right:18px;
+    font-family:'Fraunces',serif; font-style:italic; font-weight:300;
+    font-size:clamp(180px, 22vw, 320px); line-height:.85;
+    color:transparent;
+    background:linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.0) 75%);
+    -webkit-background-clip:text; background-clip:text;
+    pointer-events:none; user-select:none;
+    transition:.45s;
+  }
+  .qzone:hover{background:linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); border-color:rgba(255,255,255,0.20); transform:translateY(-2px);}
+  .qzone:hover::before{background:linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.0) 75%); -webkit-background-clip:text; background-clip:text;}
+  .qzone.selected{
+    background:radial-gradient(120% 80% at 50% 0%, rgba(79,139,255,0.18), rgba(79,139,255,0.04) 55%, transparent 75%);
+    border-color:rgba(79,139,255,0.35);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .qzone.selected::before{
+    background:linear-gradient(180deg, rgba(79,139,255,0.55), rgba(79,139,255,0.0) 70%);
+    -webkit-background-clip:text; background-clip:text;
+  }
+
+  .qz-eyebrow{display:flex; align-items:center; gap:10px; font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:#c6cdda;}
+  .qz-eyebrow .tag{color:#e8edf5; font-weight:700;}
+  .qz-eyebrow .pct{padding:3px 9px; border-radius:999px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.10); color:#cdd5e1; letter-spacing:.10em;}
+  .qz-eyebrow .stamp{margin-left:auto; display:flex; align-items:center; gap:6px; color:#4f8bff; font-weight:800; letter-spacing:.18em; opacity:0; transform:translateX(8px); transition:.3s;}
+  .qz-eyebrow .stamp::before{content:""; width:6px; height:6px; border-radius:50%; background:#4f8bff; box-shadow:0 0 10px #4f8bff;}
+  .qzone.selected .qz-eyebrow .stamp{opacity:1; transform:none;}
+
+  .qz-name{font-family:'Fraunces',serif; font-weight:300; font-size:clamp(38px, 4.8vw, 64px); line-height:.98; letter-spacing:-.02em; margin:18px 0 10px; color:#fff;}
+  .qz-name em{font-style:italic; color:#cdd5e1;}
+  .qz-blurb{max-width:50ch; font-size:15.5px; line-height:1.6; color:#d6dde9; margin-bottom:26px;}
+
+  .qz-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px;}
+  .qz-stat{padding:14px 0; border-top:1px solid rgba(255,255,255,0.10);}
+  .qz-stat .k{font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:#9aa3b2; margin-bottom:8px;}
+  .qz-stat .v{font-family:'Fraunces',serif; font-weight:400; font-size:26px; letter-spacing:-.01em; color:#fff;}
+  .qz-stat .v small{display:block; font-family:'DM Sans',sans-serif; font-weight:500; font-size:10.5px; letter-spacing:.10em; text-transform:uppercase; color:#9aa3b2; margin-top:4px;}
+
+  .qz-specs{display:grid; grid-template-columns:1fr 1fr; gap:6px 28px; padding-top:18px; border-top:1px solid rgba(255,255,255,0.08);}
+  .qz-specs .row{display:contents;}
+  .qz-specs dt{font-size:11.5px; letter-spacing:.10em; text-transform:uppercase; color:#b4bccb; padding:9px 0;}
+  .qz-specs dd{margin:0; font-size:13.5px; color:#f1f4fa; padding:9px 0; text-align:right;}
+
+  .qz-foot{display:flex; align-items:center; justify-content:space-between; margin-top:18px; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#7d869a;}
+  .qz-foot .loc{color:#cdd5e1; font-weight:700;}
+
+  .qz-saarc{margin-top:14px; display:inline-flex; align-items:center; gap:10px; padding:8px 12px 8px 10px; border-radius:999px; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.22); font-size:12px; color:#bff0c8; cursor:pointer; user-select:none;}
+  .qz-saarc input{accent-color:#22c55e; margin:0;}
+  .qz-saarc:hover{background:rgba(34,197,94,0.10);}
+
+  .qbar{
+    justify-self:center; margin:18px auto calc(18px + env(safe-area-inset-bottom,0px));
+    display:flex; align-items:center; gap:24px;
+    padding:12px 12px 12px 22px; min-width:min(720px, calc(100vw - 28px));
+    border-radius:999px;
+    background:rgba(10,12,18,0.72);
+    backdrop-filter:blur(26px) saturate(170%); -webkit-backdrop-filter:blur(26px) saturate(170%);
+    border:1px solid rgba(255,255,255,0.14);
+    box-shadow:0 22px 56px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.06);
+     transform:translateY(20px); opacity:0; transition:.7s cubic-bezier(.4,0,.2,1) .25s;
+  }
+  .qbar.show{transform:translateY(0); opacity:1;}
+  .qb-sel{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .qb-sel .lab{font-size:9px; letter-spacing:.20em; text-transform:uppercase; color:#7d869a;}
+  .qb-sel .val{font-size:13px; font-weight:600; color:#e8edf5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:32ch;}
+  .qb-sel .val.empty{color:#7d869a; font-style:italic; font-family:'Fraunces',serif; font-weight:300;}
+  .qb-divider{width:1px; height:34px; background:rgba(255,255,255,0.12);}
+  .qb-amt{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .qb-amt .lab{font-size:9px; letter-spacing:.20em; text-transform:uppercase; color:#7d869a;}
+  .qb-amt .v{font-family:'Fraunces',serif; font-weight:300; font-size:26px; letter-spacing:-.01em; color:#fff; line-height:1;}
+  .qb-amt .v small{font-family:'DM Sans',sans-serif; font-weight:500; font-size:11px; color:#9aa3b2; letter-spacing:.04em; margin-left:8px;}
+  .qb-cta{margin-left:auto; font:inherit; font-size:12px; font-weight:800; letter-spacing:.10em; text-transform:uppercase; color:#9aa3b2; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius:999px; padding:12px 20px; cursor:not-allowed; display:inline-flex; align-items:center; gap:10px; transition:.25s;}
+  .qb-cta .arr{display:inline-block; transition:transform .3s;}
+  .qbar.ready .qb-cta{color:#0a0e18; background:linear-gradient(180deg,#fff,#cdd5e1); border-color:transparent; cursor:pointer; box-shadow:0 12px 30px rgba(255,255,255,0.20);}
+  .qbar.ready .qb-cta:hover .arr{transform:translateX(4px);}
+
+  .pstage {
+    position:fixed; inset:0; z-index:9; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    padding: 90px 20px 20px;
+    opacity:0; transition:opacity .7s cubic-bezier(.4,0,.2,1);
+  }
+  .pstage.show { opacity:1; pointer-events:auto; }
+  
+  .pstage-panel {
+    width: 100%; max-width: 1000px; height: 85vh;
+    background: rgba(10,12,18,0.85);
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 28px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: translateY(30px) scale(0.98);
+    transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pstage.show .pstage-panel { transform: translateY(0) scale(1); }
+
+  .pstage-header { padding: 32px 40px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .pstage-header h2 { font-family: 'Fraunces',serif; font-weight: 300; font-size: 38px; margin: 0 0 8px; color: #fff; }
+  .pstage-header h2 em { font-style: italic; color: #cdd5e1; }
+  .pstage-header p { margin: 0; color: #a0aec0; font-size: 14px; }
+
+  .pstage-search-wrap { padding: 16px 40px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #branch-search { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 18px; color: #fff; font-size: 14px; outline: none; font-family: inherit; transition: border-color .2s, background .2s; }
+  #branch-search:focus { border-color: #4f8bff; background: rgba(79,139,255,0.05); }
+  #branch-search::placeholder { color: #7d869a; }
+
+  .pstage-body { flex: 1; overflow-y: auto; padding: 24px 40px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent; }
+  .pstage-body::-webkit-scrollbar { width: 6px; }
+  .pstage-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+  .ps-category { margin-bottom: 28px; }
+  .ps-cat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .ps-cat-title { font-size: 14px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: .08em; }
+  .ps-select-all { font-size: 11px; text-transform: uppercase; color: #4f8bff; background: rgba(79,139,255,0.1); border: 1px solid rgba(79,139,255,0.3); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; letter-spacing: .04em; transition: all .2s; }
+  .ps-select-all:hover { background: rgba(79,139,255,0.2); }
+  
+  .ps-cat-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .ps-branch-pill { padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #a0aec0; font-size: 13px; cursor: pointer; transition: all 0.2s; user-select: none; display: flex; align-items: center; gap: 8px; }
+  .ps-branch-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: background .2s; }
+  .ps-branch-pill:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.2); }
+  .ps-branch-pill.selected { background: rgba(79,139,255,0.15); border-color: rgba(79,139,255,0.4); color: #fff; box-shadow: 0 4px 12px rgba(79,139,255,0.1); }
+  .ps-branch-pill.selected::before { background: #4f8bff; box-shadow: 0 0 8px #4f8bff; }
+
+  .pstage-footer { padding: 20px 40px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 24px; align-items: center; background: rgba(0,0,0,0.2); }
+  .pstage-rank-wrap { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .pstage-rank-wrap label { font-size: 11px; text-transform: uppercase; color: #7d869a; letter-spacing: .1em; font-weight: 600; }
+  #rank-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 16px; color: #fff; font-size: 18px; outline: none; font-family: 'Fraunces', serif; max-width: 300px; transition: border-color .2s; }
+  #rank-input:focus { border-color: #4f8bff; }
+  #rank-input::placeholder { color: #7d869a; }
+  
+  .pstage-cta-btn { padding: 16px 32px; border-radius: 12px; background: linear-gradient(180deg, #4f8bff 0%, #2563eb 100%); color: #fff; border: none; font-weight: 700; cursor: pointer; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; transition: transform .15s, filter .2s; box-shadow: 0 8px 24px rgba(37,99,235,0.4); }
+  .pstage-cta-btn:hover { filter: brightness(1.1); }
+  .pstage-cta-btn:active { transform: scale(0.98); }
+
+  .rstage {
+    position:fixed; inset:0; z-index:9; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    padding: 90px 20px 20px;
+    opacity:0; transition:opacity .7s cubic-bezier(.4,0,.2,1);
+  }
+  .rstage.show { opacity:1; pointer-events:auto; }
+  
+  .rstage-panel {
+    width: 100%; max-width: 1200px; height: 85vh;
+    background: rgba(10,12,18,0.85);
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 28px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: translateY(30px) scale(0.98);
+    transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .rstage.show .rstage-panel { transform: translateY(0) scale(1); }
+
+  .rstage-header { padding: 24px 32px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .rstage-header h2 { font-family: 'Fraunces',serif; font-weight: 300; font-size: 32px; margin: 0; color: #fff; }
+  .rstage-header h2 em { font-style: italic; color: #cdd5e1; }
+  
+  .rstage-filters { display: flex; gap: 12px; flex-wrap: wrap; }
+  .rstage-filter-chip { background: rgba(79,139,255,0.1); border: 1px solid rgba(79,139,255,0.3); color: #cdd5e1; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .rstage-filter-chip strong { color: #fff; font-weight: 700; }
+
+  .rstage-back-btn { padding: 10px 20px; border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); font-weight: 600; cursor: pointer; font-size: 13px; transition: background .2s; }
+  .rstage-back-btn:hover { background: rgba(255,255,255,0.1); }
+
+  .rstage-table-wrap { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent; }
+  .rstage-table-wrap::-webkit-scrollbar { width: 6px; }
+  .rstage-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+  
+  .rtable { width: 100%; border-collapse: collapse; }
+  .rtable thead { position: sticky; top: 0; background: rgba(10,12,18,0.95); backdrop-filter: blur(10px); z-index: 10; }
+  .rtable th { text-align: left; padding: 16px 24px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #9aa3b2; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .rtable td { padding: 16px 24px; font-size: 14px; color: #e8edf5; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .rtable tr:hover td { background: rgba(255,255,255,0.03); }
+  .rtable .clg-name { font-weight: 600; color: #fff; min-width: 250px; }
+  .rtable .branch-name { color: #a0aec0; min-width: 250px; }
+  .rtable .quota-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; background: rgba(79,139,255,0.15); color: #4f8bff; font-size: 11px; font-weight: 700; border: 1px solid rgba(79,139,255,0.3); }
+  .rtable .prob-vhigh { color: #22c55e; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .05em; }
+  .rtable .prob-high { color: #4f8bff; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .05em; }
+  .rtable .prob-mod { color: #f59e0b; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .05em; }
+  
+  .rstage-empty { padding: 60px 40px; text-align: center; color: #7d869a; font-size: 16px; }
+  .rstage-empty h3 { color: #fff; margin-bottom: 8px; font-weight: 600; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: rgba(10,12,18,0.9); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1); color: #fff;
+    padding: 16px 24px; border-radius: 12px; font-size: 14px; z-index: 100;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .qsheet{
+    position:fixed; left:50%; bottom:0; transform:translate(-50%, 100%);
+    width:min(820px, calc(100vw - 28px));
+    z-index:14; padding:22px 24px calc(24px + env(safe-area-inset-bottom,0px));
+    border-radius:24px 24px 0 0;
+    background:rgba(12,14,22,0.78);
+    backdrop-filter:blur(28px) saturate(160%); -webkit-backdrop-filter:blur(28px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.10); border-bottom:0;
+    box-shadow:0 -30px 80px rgba(0,0,0,0.6);
+    transition:transform .5s cubic-bezier(.4,0,.2,1);
+    max-height:70vh; overflow:auto;
+  }
+  .qsheet.show{transform:translate(-50%, 0);}
+  .qsheet::before{content:""; display:block; width:42px; height:4px; border-radius:2px; background:rgba(255,255,255,0.20); margin:0 auto 14px;}
+  .qsh-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;}
+  .qsh-head h4{margin:0; font-family:'Fraunces',serif; font-weight:300; font-size:24px; letter-spacing:-.01em; color:#fff;}
+  .qsh-head h4 em{font-style:italic; color:#cdd5e1;}
+  .qsh-close{font:inherit; font-size:11px; font-weight:700; letter-spacing:.10em; text-transform:uppercase; color:#9aa3b2; background:transparent; border:0; cursor:pointer; padding:6px 10px;}
+  .qsh-close:hover{color:#fff;}
+  .qsh-row{display:grid; grid-template-columns:160px 1fr; gap:18px; padding:12px 0; border-top:1px solid rgba(255,255,255,0.08); font-size:13px;}
+  .qsh-row:first-of-type{border-top:0;}
+  .qsh-row .k{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#9aa3b2;}
+  .qsh-row .v{color:#e8edf5; line-height:1.55;}
+  .qsh-warn{margin-top:14px; padding:12px 14px; border-radius:14px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.28); color:#f6d8a0; font-size:12.5px; line-height:1.5;}
+  .qscrim{position:fixed; inset:0; background:rgba(0,0,0,0); pointer-events:none; transition:background .4s; z-index:13;}
+  .qscrim.show{background:rgba(0,0,0,0.45); pointer-events:auto;}
+
+  @media (max-width:880px){
+    .qsplit {
+      grid-template-columns:1fr; 
+      padding:calc(118px + env(safe-area-inset-top,0px)) 16px 16px; 
+      gap:14px; overflow-y:auto; overflow-x:hidden; scrollbar-width:none;
+    }
+    .qzone{padding:24px 22px 20px; border-radius:22px; background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)); border:1px solid rgba(255,255,255,0.14); backdrop-filter:blur(22px) saturate(150%);}
+    .qzone + .qzone{border-left:1px solid rgba(255,255,255,0.14);}
+    .qzone::before{font-size:160px; top:-12px; right:10px;}
+    .qz-name{font-size:34px;}
+    .qz-stats{grid-template-columns:repeat(3,1fr); gap:8px;}
+    .qz-stat .v{font-size:18px;}
+    .qz-specs{grid-template-columns:1fr; gap:0 14px;}
+    .qz-specs dd{text-align:left; padding:0 0 8px;}
+    .qz-specs dt{padding:8px 0 2px;}
+    .qbar{min-width:0; width:calc(100vw - 24px); padding:10px 10px 10px 16px; gap:14px;}
+    .qb-amt .v{font-size:20px;}
+    .qb-sel .val{max-width:14ch;}
+    .pstage, .rstage { padding: 70px 10px 10px; }
+    .pstage-panel, .rstage-panel { height: 90vh; border-radius: 20px; }
+    .pstage-header, .rstage-header { padding: 20px; flex-direction: column; align-items: flex-start; gap: 12px; }
+    .pstage-header h2, .rstage-header h2 { font-size: 24px; }
+    .pstage-search-wrap { padding: 12px 20px; }
+    .pstage-body, .rstage-table-wrap { padding: 16px 0; }
+    .ps-cat-items { grid-template-columns: 1fr; }
+    .pstage-footer { flex-direction: column; gap: 16px; padding: 16px 20px; align-items: stretch; }
+    #rank-input { max-width: 100%; }
+    .pstage-cta-btn { width: 100%; }
+    .rtable th, .rtable td { padding: 12px 16px; font-size: 12px; }
+    .rtable .clg-name, .rtable .branch-name { min-width: 150px; }
+  }
+ .statepanel.hidden{opacity:0;transform:translateY(-12px) scale(.98);filter:blur(6px);pointer-events:none;}
+ .statepanel.hidden *{pointer-events:none !important;}
+ @media (max-width:768px){
+   .statepanel.hidden{transform:translateY(24px) scale(.985);}
+ }
+  @media (max-width:768px){
+    #globe-canvas{height:50vh !important;inset:auto 0 50vh 0 !important;top:0 !important;}
+    .legend{display:none;}
+    .statepanel{
+      left:0;right:0;bottom:0;top:auto;width:auto;
+      height:50vh;max-height:50vh;
+      border-radius:24px 24px 0 0;
+      padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));
+      background:rgba(10,12,18,0.78);
+      backdrop-filter:blur(24px) saturate(160%);
+      -webkit-backdrop-filter:blur(24px) saturate(160%);
+      border-top:1px solid rgba(255,255,255,0.12);
+      box-shadow:0 -10px 40px rgba(0,0,0,0.5);
+    }
+    .statepanel::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.25);margin:0 auto 10px;}
+    .statepanel h3{font-size:14px;margin-bottom:4px;}
+    .statepanel .sub{font-size:11px;margin-bottom:10px;}
+    .statepanel .counts{margin-bottom:10px;}
+    .statepanel .list{gap:6px;}
+    .stitem{padding:13px 14px;font-size:15px;}
+  }
+  .legend{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:10;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;font-size:12px;color:#e8edf5;}
+  .legend .row{display:flex;align-items:center;gap:8px;}
+  .legend .sw{width:10px;height:10px;border-radius:50%;}
+  .legend .sw.p{background:#22c55e;box-shadow:0 0 8px #22c55e;}
+  .legend .sw.b{background:#ef4444;box-shadow:0 0 8px #ef4444;}
+  .stats{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:10;display:flex;gap:8px;}
+  .pill{padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;color:#e8edf5;}
+  .pill .n{color:#4f8bff;margin-left:4px;}
+  .pill.p .n{color:#22c55e;}
+  .pill.b .n{color:#ef4444;}
+
+  .actions{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px;z-index:11;display:flex;gap:8px;}
+  .actbtn{font-family:inherit;font-size:12px;font-weight:600;padding:8px 14px;border-radius:999px;border:0;color:#e8edf5;cursor:pointer;position:relative;isolation:isolate;}
+  .actbtn .lens{position:absolute;inset:0;border-radius:inherit;z-index:-1;background-color:rgba(255,255,255,0.05);backdrop-filter:blur(10px) url(#liquid-distort) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10),inset 1.8px 3px 0 -2px rgba(255,255,255,0.8),inset -2px -2px 0 -2px rgba(255,255,255,0.6),0 8px 24px rgba(0,0,0,0.35);}
+  .actbtn.primary{color:#fff;}
+  .actbtn.primary .lens{background:linear-gradient(180deg,#4f8bff 0%,#2563eb 100%);box-shadow:0 8px 24px rgba(37,99,235,0.55),inset 0 1px 0 rgba(255,255,255,0.4);}
+
+  .tooltip{position:fixed;z-index:20;display:none;padding:8px 12px;border-radius:10px;background:rgba(10,14,24,.92);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(20px);font-size:12px;pointer-events:none;white-space:nowrap;color:#e8edf5;}
+  .tooltip .tt-state{font-weight:700;}
+  .tooltip .tt-hint{color:#a0aec0;font-size:11px;margin-top:2px;}
+  @media (max-width:768px){
+    .legend{font-size:11px;padding:10px 12px;}
+    .pill{font-size:11px;padding:7px 10px;}
+    .gbtn{padding:8px 12px;font-size:12px;}
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      transition-delay: 0ms !important;
+    }
+    #stars, #shooting { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="root">
+  <canvas id="stars"></canvas>
+  <svg id="shooting" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="trail-a" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#2EB9DF" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#9E00FF" stop-opacity="1"/>
+      </linearGradient>
+      <linearGradient id="trail-b" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FFB800" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#FF00C8" stop-opacity="1"/>
+      </linearGradient>
+      <linearGradient id="trail-c" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#00B7FF" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#00FF9D" stop-opacity="1"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="liquid-distort" primitiveUnits="objectBoundingBox">
+      <feImage result="map" width="100%" height="100%" x="0" y="0"
+        preserveAspectRatio="none"
+        href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='60%25'><stop offset='0%25' stop-color='%23ff8080'/><stop offset='100%25' stop-color='%2380ff80'/></radialGradient></defs><rect width='100' height='100' fill='url(%23g)'/></svg>" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.01" result="blur" />
+      <feDisplacementMap in="blur" in2="map" scale="0.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
+
+  <canvas id="globe-canvas"></canvas>
+
+  <div class="topbar">
+    <nav class="nav" id="nav">
+      <span class="active-pill" id="activePill"></span>
+      <button class="gbtn active" data-i="0"><span class="lens"></span><span class="label"><span class="num">1</span>States</span></button>
+      <button class="gbtn" data-i="1"><span class="lens"></span><span class="label"><span class="num">2</span>Quota</span></button>
+      <button class="gbtn" data-i="2"><span class="lens"></span><span class="label"><span class="num">3</span>Program &amp; Rank</span></button>
+      <button class="gbtn" data-i="3"><span class="lens"></span><span class="label"><span class="num">4</span>Results</span></button>
+    </nav>
+  </div>
+
+  <aside class="statepanel glass" id="statepanel">
+    <h3>Select States</h3>
+    <div class="sub">Tap to prefer · tap again to blacklist · once more to clear</div>
+    <div class="counts">
+      <div class="ct p"><span class="v" id="ct-preferred">0</span><span class="k">Preferred</span></div>
+      <div class="ct b"><span class="v" id="ct-blacklisted">0</span><span class="k">Blacklisted</span></div>
+      <div class="ct n"><span class="v" id="ct-neutral">25</span><span class="k">Neutral</span></div>
+    </div>
+    <div class="search-wrap">
+      <svg class="search-ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="sp-search" type="search" autocomplete="off" placeholder="Search states…" aria-label="Search states" />
+      <button type="button" id="sp-clear" class="search-clear" aria-label="Clear search">×</button>
+    </div>
+    <div class="list" id="sp-list"></div>
+    <div class="sp-empty" id="sp-empty" hidden>No states match your search.</div>
+    <button type="button" id="sp-continue" class="sp-continue">Continue to Quota →</button>
+  </aside>
+
+  <div class="qstage" id="qstage" aria-hidden="true">
+    <div class="qsplit">
+      <article class="qzone" data-cat="ciwg" data-num="01" tabindex="0" role="button" aria-pressed="false">
+        <div class="qz-eyebrow">
+          <span class="tag">CAT/01</span>
+          <span>· CIWG</span>
+          <span class="pct">5% supernumerary</span>
+          <span class="stamp">SELECTED</span>
+        </div>
+        <h3 class="qz-name">Children of <em>Gulf</em><br/>Workers</h3>
+        <p class="qz-blurb">For applicants whose parent works in a GCC country. Domestic-rate tuition, narrowest pool, strictest proof.</p>
+        <div class="qz-stats">
+          <div class="qz-stat"><div class="k">Tuition / yr</div><div class="v">₹1,25,000<small>subsidized</small></div></div>
+          <div class="qz-stat"><div class="k">Initial</div><div class="v">$1,050<small>at apply</small></div></div>
+          <div class="qz-stat"><div class="k">Pool</div><div class="v">⅓<small>of DASA seats</small></div></div>
+        </div>
+        <dl class="qz-specs">
+          <div class="row"><dt>Reg fee</dt><dd>USD 300 · non-refundable</dd></div>
+          <div class="row"><dt>Sem 1</dt><dd>₹62,500 (≈ USD 750)</dd></div>
+          <div class="row"><dt>Basis</dt><dd>JEE Main 2026 rank</dd></div>
+          <div class="row"><dt>Proof</dt><dd>Parent passport · Gulf visa · Employer letter</dd></div>
+        </dl>
+        <div class="qz-foot"><span>IND · GCC · 2026</span><span class="loc">NITRR</span></div>
+      </article>
+
+      <article class="qzone" data-cat="nonciwg" data-num="02" tabindex="0" role="button" aria-pressed="false">
+        <div class="qz-eyebrow">
+          <span class="tag">CAT/02</span>
+          <span>· NON-CIWG</span>
+          <span class="pct">10% supernumerary</span>
+          <span class="stamp">SELECTED</span>
+        </div>
+        <h3 class="qz-name">NRIs, OCIs &amp;<br/><em>Foreign</em> nationals</h3>
+        <p class="qz-blurb">Standard DASA quota with the widest seat matrix. SAARC nationals get the bill cut in half.</p>
+        <div class="qz-stats">
+          <div class="qz-stat"><div class="k">Tuition / yr</div><div class="v">$8,000<small>standard</small></div></div>
+          <div class="qz-stat"><div class="k">Initial</div><div class="v" id="qz2-init">$4,300<small>at apply</small></div></div>
+          <div class="qz-stat"><div class="k">Pool</div><div class="v">⅔<small>of DASA seats</small></div></div>
+        </div>
+        <dl class="qz-specs">
+          <div class="row"><dt>Reg fee</dt><dd>USD 300 · non-refundable</dd></div>
+          <div class="row"><dt>Sem 1</dt><dd>USD 4,000 (USD 2,000 SAARC)</dd></div>
+          <div class="row"><dt>Basis</dt><dd>JEE Main 2026 rank</dd></div>
+          <div class="row"><dt>Open to</dt><dd>NRI · OCI · PIO · Foreign</dd></div>
+        </dl>
+        <label class="qz-saarc" onclick="event.stopPropagation();">
+          <input type="checkbox" id="qp-saarc"/> SAARC national — halve my Sem 1
+        </label>
+        <div class="qz-foot"><span>INTL · 2026</span><span class="loc">NITRR</span></div>
+      </article>
+    </div>
+
+    <footer class="qbar" id="qbar">
+      <div class="qb-sel">
+        <span class="lab">Selection</span>
+        <span class="val empty" id="qb-sel-val">none yet</span>
+      </div>
+      <span class="qb-divider"></span>
+      <div class="qb-amt">
+        <span class="lab">Estimated initial</span>
+        <span class="v" id="qb-amt-val">$0 <small>≈ ₹0</small></span>
+      </div>
+      <button type="button" class="qb-cta" id="qb-cta">Continue <span class="arr">→</span></button>
+    </footer>
+  </div>
+
+  <!-- Program & Rank Stage -->
+  <div id="pstage" class="pstage" aria-hidden="true">
+    <div class="pstage-panel">
+      <div class="pstage-header">
+        <h2>Your courses & <em>rank</em></h2>
+        <p>Pick everything you're open to — you can always narrow it down later.</p>
+      </div>
+      <div class="pstage-search-wrap">
+        <input type="text" id="branch-search" placeholder="Search branches… e.g. Computer Science" />
+      </div>
+      <div class="pstage-body" id="branch-list">
+        <!-- Categories injected by JS -->
+      </div>
+      <div class="pstage-footer">
+        <div class="pstage-rank-wrap">
+          <label for="rank-input">Enter your JEE Main / DASA rank</label>
+          <input type="number" id="rank-input" placeholder="e.g. 45000" min="1" max="10000000" />
+        </div>
+        <button class="pstage-cta-btn" id="pstage-cta">Show my colleges →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Stage -->
+  <div id="rstage" class="rstage" aria-hidden="true">
+    <div class="rstage-panel">
+      <div class="rstage-header">
+        <h2>Your <em>college</em> matches</h2>
+        <div class="rstage-filters" id="rstage-filters"></div>
+        <button class="rstage-back-btn" id="rstage-back">← Back</button>
+      </div>
+      <div class="rstage-table-wrap">
+        <table class="rtable">
+          <thead>
+            <tr>
+              <th>College</th>
+              <th>Branch</th>
+              <th>Quota</th>
+              <th>Opening Rank</th>
+              <th>Closing Rank</th>
+              <th>Probability</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody">
+            <!-- Results injected by JS -->
+          </tbody>
+        </table>
+        <div id="rstage-empty" class="rstage-empty" style="display:none;">
+          <h3>No colleges match your exact criteria</h3>
+          <p>Try broadening your branch selections or improving your rank input.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qscrim" id="qscrim"></div>
+  <aside class="qsheet" id="qsheet" aria-hidden="true">
+    <div class="qsh-head">
+      <h4>Eligibility &amp; <em>documents</em></h4>
+      <button type="button" class="qsh-close" id="qsh-close">Close ✕</button>
+    </div>
+    <div class="qsh-row"><div class="k">12th marks</div><div class="v">≥ 75% aggregate or 7.5 CGPA · Physics + Maths + one of (Chem / CS / Bio / Biotech).</div></div>
+    <div class="qsh-row"><div class="k">Age</div><div class="v">Born on or after 1 Oct 2001.</div></div>
+    <div class="qsh-row"><div class="k">All applicants</div><div class="v">Passport · 10/11/12 transcripts · JEE Main 2026 scorecard · school leaving certificate.</div></div>
+    <div class="qsh-row"><div class="k">CIWG extra</div><div class="v">Parent's Indian passport · Gulf work permit / residency visa (active 2026) · employer certificate in DASA-prescribed format.</div></div>
+    <div class="qsh-warn">⚠ Hostel · mess · institute utility charges (₹30,000–₹60,000 / sem) are paid directly to the allotted college during physical reporting.</div>
+  </aside>
+
+  <button type="button" id="sp-back" class="sp-back">← Back to States</button>
+  <div class="tooltip" id="map-tooltip"><div class="tt-state"></div><div class="tt-hint"></div></div>
+  <div id="toast" class="toast"></div>
+</div>
+
+<!-- EMBEDDED CSV DATA FROM YOUR FILE -->
+<script type="text/csv" id="embedded-csv">Institute,City,State,Academic Program Name,Quota,Seat Type,Gender,Opening Rank,Closing Rank,NIRF_Rank_2025,NIRF_Score_2025,NIRF_Rank_Band_2025,NIRF Score,TLR,RPC,GO,OI,PERCEPTION,Overall Rating,Placement Rating,Infra Rating,Reviews
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,28039,42681,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,33167,50051,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,84107,141585,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,76661,363190,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,234186,366789,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,607990,607990,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Computational and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,33610,47457,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Computational and Data Science (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,49528,76237,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,14980,22420,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,3706,33405,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,75523,110003,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,87536,156135,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,29028,54969,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,43365,79607,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,22657,40742,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Information Technology (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,34504,77316,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,89988,128896,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,108837,205379,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Metallurgical and Materials Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,513425,568773,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Metallurgical and Materials Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,204417,688014,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"National Institute of Technology Karnataka, Surathkal",Surathkal,Karnataka,"Mining Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,587729,587729,17,64.59,1-100,64.19,73.15,50.17,78.62,64.54,50.18,4.4,4.4,4.2,491
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Biomedical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,204241,960930,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Biotechnology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,515477,515477,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,158725,401155,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,148831,214120,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Computer Science and Financial Technology for DASA- CIWG (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,248452,539352,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Cyber Physical Systems for DASA- CIWG (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,636549,636549,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,411971,721643,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,150695,627364,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,314793,867558,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Mechatronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,114474,114474,59,52.55,1-100,48.17,70.14,28.99,50.15,62.03,21.98
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,1384,1384,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Architecture (5 Years, Bachelor of Architecture)",DASA-Non CIWG,OPEN,Gender-Neutral,1189,19111,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,92001,156953,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,29304,364481,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,134053,190350,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,333855,974217,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,5686,13385,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,4891,16522,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,26928,78969,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,54646,116498,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,16467,33868,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,11074,46614,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Instrumentation and Control Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,142079,178544,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Instrumentation and Control Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,151746,218480,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,18126,77267,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,61085,196848,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Metallurgical and Materials Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,281114,281114,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Metallurgical and Materials Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,726464,726464,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Production Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,187126,220410,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+"National Institute of Technology, Tiruchirappalli",Tiruchirappalli,Tamil Nadu,"Production Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,290606,449257,9,68.14,1-100,66.08,70,54.63,78.13,61.35,69.32,4.4,4.4,4.3,374
+National Institute of Technology Durgapur,Durgapur,West Bengal,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,119143,194796,49,55.94,1-100,55.48,69.23,42.64,68.37,56.43,26.15,4,3.9,3.8,657
+National Institute of Technology Durgapur,Durgapur,West Bengal,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,259359,358272,49,55.94,1-100,55.48,69.23,42.64,68.37,56.43,26.15,4,3.9,3.8,657
+National Institute of Technology Durgapur,Durgapur,West Bengal,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,325511,390036,49,55.94,1-100,55.48,69.23,42.64,68.37,56.43,26.15,4,3.9,3.8,657
+National Institute of Technology Durgapur,Durgapur,West Bengal,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,396720,396720,49,55.94,1-100,55.48,69.23,42.64,68.37,56.43,26.15,4,3.9,3.8,657
+National Institute of Technology Durgapur,Durgapur,West Bengal,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,698829,698829,49,55.94,1-100,55.48,69.23,42.64,68.37,56.43,26.15,4,3.9,3.8,657
+National Institute of Technology Calicut,Kozhikode,Kerala,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,711,1071,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Architecture (5 Years, Bachelor of Architecture)",DASA-Non CIWG,OPEN,Gender-Neutral,1735,11052,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Biotechnology for DASA- Non CIWG (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,818619,818619,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Biotechnology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,145015,214118,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,109378,195952,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,357830,843474,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,130865,355880,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,651222,934725,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,38493,74099,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,56914,126093,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,109772,147010,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,171618,382680,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,60443,97144,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,59548,218996,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Energy Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,235640,268309,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Energy Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,278297,770804,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Engineering Physics (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,153753,178443,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Engineering Physics (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,229380,424146,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Materials Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,183002,183002,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,157178,196041,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,246433,433767,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Production Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,333218,498621,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+National Institute of Technology Calicut,Kozhikode,Kerala,"Production Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,509668,976425,21,63.05,1-100,56.48,68,34.63,77.94,63.52,37.53,4.1,4.1,3.9,394
+"Dr. B R Ambedkar National Institute of Technology, Jalandhar",Jalandhar,Punjab,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,117359,481635,55,53.38,1-100,49.01,67.97,27.72,60.78,63.12,18.32,3.9,3.9,3.9,760
+"Dr. B R Ambedkar National Institute of Technology, Jalandhar",Jalandhar,Punjab,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,1347319,1347319,55,53.38,1-100,49.01,67.97,27.72,60.78,63.12,18.32,3.9,3.9,3.9,760
+"Dr. B R Ambedkar National Institute of Technology, Jalandhar",Jalandhar,Punjab,"Data Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,809482,809482,55,53.38,1-100,49.01,67.97,27.72,60.78,63.12,18.32,3.9,3.9,3.9,760
+"Dr. B R Ambedkar National Institute of Technology, Jalandhar",Jalandhar,Punjab,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,675536,769321,55,53.38,1-100,49.01,67.97,27.72,60.78,63.12,18.32,3.9,3.9,3.9,760
+"Dr. B R Ambedkar National Institute of Technology, Jalandhar",Jalandhar,Punjab,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,707893,707893,55,53.38,1-100,49.01,67.97,27.72,60.78,63.12,18.32,3.9,3.9,3.9,760
+"National Institute of Technology, Warangal",Warangal,Telangana,"Bio Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,195173,273265,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Bio Technology (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,603129,779103,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,175621,181015,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Chemical Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,367238,367238,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,355389,592331,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Chemical Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-Non CIWG,OPEN,Gender-Neutral,1224371,1224371,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,44759,436089,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Computer Science and Engineering ( Artificial Intelligence & Data Science) (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,38327,46502,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Computer Science and Engineering ( Artificial Intelligence & Data Science) (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,82449,92012,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,13108,38176,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,6401,82435,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,110992,127350,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,160426,243839,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electronics and Communication Engineering (VLSI Design and Technology) (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,58297,101537,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electronics and Communication Engineering (VLSI Design and Technology) (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,92174,178229,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,55280,83843,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,84813,158748,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,53982,101392,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,95748,185598,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Mathematics (5 Years, Integrated Master of Science)",DASA-CIWG,OPEN,Gender-Neutral,513655,513655,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,142600,148054,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,200250,261857,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Metallurgical and Materials Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,578455,578455,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"National Institute of Technology, Warangal",Warangal,Telangana,"Metallurgical and Materials Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,662899,662899,28,61.05,1-100,56.76,67.88,39.6,74.47,55.52,40.72,4.2,4.3,4.1,633
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Aerospace Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,317467,317467,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Aerospace Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,555613,555613,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,219432,520518,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,307337,862161,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Electronics and Telecommunication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,437890,437890,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"Indian Institute of Engineering Science and Technology, Shibpur",Howrah,West Bengal,"Electronics and Telecommunication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,67281,1089227,54,53.63,1-100,53.24,67.15,45.47,61.09,40.27,32.03,4.1,3.8,3.8,376
+"National Institute of Technology, Srinagar",Srinagar,Jammu & Kashmir,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,427477,427477,73,50.23,1-100,42.63,65.87,14.29,57.85,63.89,6.19,3.8,3.6,3.8,362
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Biotechnology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,308124,308124,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,358809,358809,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,80333,252199,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,156785,931961,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,516450,737665,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,175138,384878,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,533851,533851,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Engineering and Computational Mechanics (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,475189,475189,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+Motilal Nehru National Institute of Technology Allahabad,Prayagraj,Uttar Pradesh,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,264569,549382,62,52.15,1-100,51.9,64.23,34.07,73.63,54.84,21.98,4.1,4.4,3.6,723
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,294350,358608,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Artificial Intelligence (5 Years, Integrated B. Tech. and M. Tech.)",DASA-CIWG,OPEN,Gender-Neutral,305470,530134,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,357023,908293,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,61924,249358,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,114935,709411,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,572806,914674,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,270474,354694,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,533051,624011,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Electronics and VLSI Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,358615,420327,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Electronics and VLSI Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,62656,62656,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,295501,376662,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,399122,399122,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,257972,565710,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"Sardar Vallabhbhai National Institute of Technology, Surat",Surat,Gujarat,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,737383,737383,66,50.77,1-100,49.99,64.14,34.39,65.08,56.74,17.35,4,3.9,4.2,644
+"National Institute of Technology, Silchar",Silchar,Assam,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,327195,327195,50,55.91,1-100,49.57,63.11,40.36,61.95,52.73,8.68,4.2,4.1,4.1,369
+"National Institute of Technology, Silchar",Silchar,Assam,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,383910,383910,50,55.91,1-100,49.57,63.11,40.36,61.95,52.73,8.68,4.2,4.1,4.1,369
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,115049,118955,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,147698,169673,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Bio Medical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,378306,394021,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Bio Medical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,805585,805585,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Bio Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,513995,584941,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,205547,357632,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,955829,955829,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,48810,102778,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,71444,140041,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,173994,261245,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,189927,1173667,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,117029,139686,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,165256,193417,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electronics and Instrumentation Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,156706,226466,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Electronics and Instrumentation Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,237524,747778,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Industrial Design (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,603766,603766,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,188628,219295,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,307601,701807,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Rourkela",Rourkela,Odisha,"Physics (5 Years, Integrated Master of Science)",DASA-CIWG,OPEN,Gender-Neutral,710572,710572,13,66.62,1-100,58.02,62.21,56.58,72.53,50.72,28.08,4.3,4.2,4.4,739
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,299645,590218,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,926908,926908,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Artificial Intelligence and Machine Learning (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,260778,514360,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Artificial Intelligence and Machine Learning (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,527060,527060,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,322335,384600,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Computer Science and Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,328768,328768,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,278291,1020638,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Electrical Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,656568,656568,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,396304,655863,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Electronics and Communication Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,474158,474158,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,763820,763820,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,747088,747088,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,550551,675413,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"National Institute of Technology, Kurukshetra",Kurukshetra,Haryana,"Microelectronics & VLSI Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,485672,968418,85,47.98,1-100,50.59,62.2,40.64,62.01,53.66,19.73,4.1,4,4,653
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,5225,6816,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,360727,574810,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,667613,667613,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,121440,147009,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,73269,270637,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,254522,333514,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,1074763,1074763,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,147532,222497,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,221245,479806,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+"Visvesvaraya National Institute of Technology, Nagpur",Nagpur,Maharashtra,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,274707,333505,44,56.58,1-100,45.52,60.59,21.88,61.04,69.96,15.72,4.1,3.8,4.1,385
+National Institute of Technology Raipur,Raipur,Chhattisgarh,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,26086,26086,86,47.59,1-100,44.83,60.57,28.98,59.26,58.32,2.87,3.8,3.9,3.4,581
+National Institute of Technology Raipur,Raipur,Chhattisgarh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,454797,454797,86,47.59,1-100,44.83,60.57,28.98,59.26,58.32,2.87,3.8,3.9,3.4,581
+National Institute of Technology Raipur,Raipur,Chhattisgarh,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,658673,658673,86,47.59,1-100,44.83,60.57,28.98,59.26,58.32,2.87,3.8,3.9,3.4,581
+"National Institute of Technology, Andhra Pradesh",Tadepalligudem,Andhra Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,301670,306480,201-300,,201-300,34.59,59.59,9.94,41.8,51.5,2.17,3.9,3.9,3.9,760
+"National Institute of Technology, Andhra Pradesh",Tadepalligudem,Andhra Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,626036,1029243,201-300,,201-300,34.59,59.59,9.94,41.8,51.5,2.17,3.9,3.9,3.9,760
+National Institute of Technology Agartala,Agartala,Tripura,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,717697,931692,101-150,,101-150,39.86,56.96,21.82,48.87,57.71,6.83,4.1,3.9,4.3,331
+National Institute of Technology Goa,Ponda,Goa,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,226401,274261,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,313267,828008,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,586914,664049,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,619516,619516,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,372992,415456,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,551924,551924,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+National Institute of Technology Goa,Ponda,Goa,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,457872,457872,101-150,,101-150,40.6,56.69,21.42,53.53,57.08,7.45,3.7,3.8,3.2,58
+"National Institute of Technology, Jamshedpur",Jamshedpur,Jharkhand,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,229320,386800,82,48.25,1-100,39.44,56.64,12.85,64.87,45.15,11.13,4,4.5,3.7,679
+"National Institute of Technology, Jamshedpur",Jamshedpur,Jharkhand,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,412531,1245851,82,48.25,1-100,39.44,56.64,12.85,64.87,45.15,11.13,4,4.5,3.7,679
+"National Institute of Technology, Jamshedpur",Jamshedpur,Jharkhand,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,473691,587044,82,48.25,1-100,39.44,56.64,12.85,64.87,45.15,11.13,4,4.5,3.7,679
+"Punjab Engineering College, Chandigarh",Chandigarh,Chandigarh,"Computer Science and Engineering (Data Science) (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,962638,1060828,101-150,,101-150,42.62,55.98,15.24,65.57,55.41,26.15,3.9,4.1,3.5,385
+"Punjab Engineering College, Chandigarh",Chandigarh,Chandigarh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,403752,1139108,101-150,,101-150,42.62,55.98,15.24,65.57,55.41,26.15,3.9,4.1,3.5,385
+"Punjab Engineering College, Chandigarh",Chandigarh,Chandigarh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,664706,819399,101-150,,101-150,42.62,55.98,15.24,65.57,55.41,26.15,3.9,4.1,3.5,385
+"Punjab Engineering College, Chandigarh",Chandigarh,Chandigarh,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,560637,560637,101-150,,101-150,42.62,55.98,15.24,65.57,55.41,26.15,3.9,4.1,3.5,385
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,12004,22175,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,190496,299739,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,309532,1017981,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,419692,585441,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,395919,610318,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+Maulana Azad National Institute of Technology Bhopal,Bhopal,Madhya Pradesh,"Mathematics and Data Science (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,1221201,1221201,81,48.26,1-100,45.02,55.71,28.88,63.97,58.59,9.87,4.1,4.1,3.9,800
+National Institute of Technology Patna,Patna,Bihar,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,521760,521760,53,53.89,1-100,42.06,54.45,24.3,61.87,50.77,9.87,4.1,4.2,3.9,718
+National Institute of Technology Patna,Patna,Bihar,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,459989,875705,53,53.89,1-100,42.06,54.45,24.3,61.87,50.77,9.87,4.1,4.2,3.9,718
+National Institute of Technology Patna,Patna,Bihar,"Computer Science and Engineering with Specialization in Cyber Security (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,576985,576985,53,53.89,1-100,42.06,54.45,24.3,61.87,50.77,9.87,4.1,4.2,3.9,718
+National Institute of Technology Patna,Patna,Bihar,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,1270913,1270913,53,53.89,1-100,42.06,54.45,24.3,61.87,50.77,9.87,4.1,4.2,3.9,718
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,372989,372989,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,113367,214464,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,666619,666619,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,462135,462135,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,258207,417977,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+National Institute of Technology Puducherry,Karaikal,Pondicherry,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,1149332,1149332,99,45.83,1-100,35.66,52.36,5.42,53.92,68.57,6.83,3.4,3.6,3.3,57
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Biotechnology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,658181,658181,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,523204,523204,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,30015,103543,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,82863,241277,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,422072,594412,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,65675,191826,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,298172,473418,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Environmental Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,782356,782356,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,110693,141512,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Information Technology (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,257715,484379,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,116009,215669,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Mathematics and Computing (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,113807,344926,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,238520,417993,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,617909,1177629,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Software Engineering for DASA- CIWG (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,117535,156029,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+"Delhi Technological University, Delhi",New Delhi,Delhi,"Software Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,259595,450252,30,,1-100,46.19,50.95,24.48,72.9,67.16,22.64,4.3,4.4,4.2,2630
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Architecture and Planning (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,11084,11084,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Artificial Intelligence and Data Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,104275,261513,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Artificial Intelligence and Data Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,463786,907544,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,707910,707910,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,69664,218714,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,150061,407609,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,146766,560910,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,50164,279889,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,250102,587471,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,208250,438269,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+Malaviya National Institute of Technology Jaipur,Jaipur,Rajasthan,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,1329417,1329417,42,57.45,1-100,39.38,50.94,25.26,52.53,53.47,6.62,4.2,4,4.4,865
+National Institute of Technology Hamirpur,Hamirpur,Himachal Pradesh,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,8521,10999,97,46.1,1-100,39.09,50.19,21.92,58.2,46.54,11.59,4.1,3.7,4.3,452
+National Institute of Technology Hamirpur,Hamirpur,Himachal Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,441386,586444,97,46.1,1-100,39.09,50.19,21.92,58.2,46.54,11.59,4.1,3.7,4.3,452
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (Artificial Intelligence) (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,88593,202143,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (Artificial Intelligence) (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,196354,1025758,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (Data Science) (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,251743,257467,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (Data Science) (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,346398,514758,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,105334,250703,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,88994,853076,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+"Netaji Subhas University of Technology, Delhi",New Delhi,Delhi,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,260223,284722,70,50.43,1-100,40.22,47.14,22.25,65.82,44.23,18.32,4,4.2,3.8,1006
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,289276,339733,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,281313,530871,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Electrical and Electronics Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,347668,347668,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Integrated B. Tech.(IT) and M. Tech (IT) (5 Years, Integrated B. Tech. and M. Tech.)",DASA-CIWG,OPEN,Gender-Neutral,417431,421890,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Integrated B. Tech.(IT) and MBA (5 Years, Integrated B. Tech. and MBA)",DASA-CIWG,OPEN,Gender-Neutral,688993,688993,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+Atal Bihari Vajpayee Indian Institute of Information Technology & Management Gwalior,Gwalior,Madhya Pradesh,"Mathematics and Scientific Computing (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,225262,509620,96,46.25,1-100,38.33,46.9,17.04,66.48,53.57,4.9,3.9,4,4.1,115
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,127370,291546,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,277691,1329568,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,50167,198539,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Information Technology (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,46247,395823,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Information Technology-Business Informatics (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,96740,193900,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Indian Institute of Information Technology, Allahabad",Prayagraj,Uttar Pradesh,"Information Technology-Business Informatics (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,135036,275947,101-150,,101-150,40.28,46.57,15.7,72.28,51.74,19.73,4.4,4.7,4.3,248
+"Pt. Dwarka Prasad Mishra Indian Institute of Information Technology, Design & Manufacture Jabalpur",Jabalpur,Madhya Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,233653,689088,101-150,,101-150,41.17,46.17,29.61,61.76,54.06,6.83,4.1,3.9,4.2,244
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"B.Tech. in Electronics and Communication Engineering and M.Tech. in Communication Systems (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,468854,468854,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"B.Tech. in Electronics and Communication Engineering and M.Tech. in Microelectronics and VLSI Systems (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,355077,355077,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,153694,246213,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Computer Science and Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,274795,282946,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,291413,649670,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Computer Science and Engineering with Major in Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,247243,250166,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Computer Science and Engineering with Major in Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,369594,369594,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Design Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,832010,832010,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,204448,275208,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,503149,602270,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",Kancheepuram,Tamil Nadu,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,338240,437322,151-200,,151-200,39.29,45.42,30.89,59.4,43.47,1.63,4.1,3.5,4.4,85
+"Indira Gandhi Delhi Technical University for Women, New Delhi",New Delhi,Delhi,"Artificial Intelligence and Machine Learning (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,769660,769660,151-200,,151-200,34.52,43.09,8.82,65.36,54.48,4.23,4,4.4,3.4,272
+"Indira Gandhi Delhi Technical University for Women, New Delhi",New Delhi,Delhi,"Computer Science and Artificial Intelligence (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,209944,339012,151-200,,151-200,34.52,43.09,8.82,65.36,54.48,4.23,4,4.4,3.4,272
+"Indira Gandhi Delhi Technical University for Women, New Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,463423,653287,151-200,,151-200,34.52,43.09,8.82,65.36,54.48,4.23,4,4.4,3.4,272
+"Indira Gandhi Delhi Technical University for Women, New Delhi",New Delhi,Delhi,"Information Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,672213,672213,151-200,,151-200,34.52,43.09,8.82,65.36,54.48,4.23,4,4.4,3.4,272
+National Institute of Technology Delhi,Delhi,Delhi,"Aerospace Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,146590,146590,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Aerospace Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,1259326,1259326,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,280252,280252,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,542924,725691,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Civil Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,580466,580466,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,124703,245423,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,205854,660302,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Electrical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,131837,289975,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,247016,305407,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"Mechanical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,288215,316351,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+National Institute of Technology Delhi,Delhi,Delhi,"VLSI Design and Technology (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,289927,289927,65,50.79,1-100,,,,,,,3.8,4.1,3.4,146
+"Indian Institute of Information Technology (IIIT), Sri City, Chittoor",Chittoor,Andhra Pradesh,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,311096,934537,201-300,,201-300
+"Indian Institute of Information Technology (IIIT), Sri City, Chittoor",Chittoor,Andhra Pradesh,"Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,530805,530805,201-300,,201-300
+"Indian Institute of Information Technology (IIIT), Sri City, Chittoor",Chittoor,Andhra Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,241379,408977,201-300,,201-300
+"Indian Institute of Information Technology (IIIT), Sri City, Chittoor",Chittoor,Andhra Pradesh,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,639012,639012,201-300,,201-300
+"Indian Institute of Information Technology(IIIT), Vadodara, Gujrat",Vadodara,Gujarat,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,347943,347943,201-300,,201-300
+Indian Institute of Information Technology (IIIT) Pune,Pune,Maharashtra,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,218734,1140984,201-300,,201-300
+Indian Institute of Information Technology (IIIT) Pune,Pune,Maharashtra,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,619976,619976,201-300,,201-300
+Indian Institute of Information Technology (IIIT) Pune,Pune,Maharashtra,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,559773,559773,201-300,,201-300
+Indian Institute of Information Technology (IIIT) Pune,Pune,Maharashtra,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,311942,311942,201-300,,201-300
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,93469,304456,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,340585,775045,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering with specialization in Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,91519,202105,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering with specialization in Artificial Intelligence and Data Science (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,452425,878872,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering with specialization in Cyber Security (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,123191,309069,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Computer Science and Engineering with specialization in Cyber Security (4 Years, Bachelor of Technology)",DASA-Non CIWG,OPEN,Gender-Neutral,343679,765097,101-150,,101-150
+Indian Institute of Information Technology(IIIT) Kottayam,Kottayam,Kerala,"Electronics and Communication Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,241063,341260,101-150,,101-150
+"School of Planning & Architecture, Bhopal",Bhopal,Madhya Pradesh,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,2752,5223
+"School of Planning & Architecture, New Delhi",New Delhi,Delhi,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,798,1132
+"School of Planning & Architecture, New Delhi",New Delhi,Delhi,"Architecture (5 Years, Bachelor of Architecture)",DASA-Non CIWG,OPEN,Gender-Neutral,279,6016
+"School of Planning & Architecture, New Delhi",New Delhi,Delhi,"Planning (4 Years, Bachelor of Planning)",DASA-CIWG,OPEN,Gender-Neutral,2466,2466
+School of Planning & Architecture: Vijayawada,Vijayawada,Andhra Pradesh,"Architecture (5 Years, Bachelor of Architecture)",DASA-CIWG,OPEN,Gender-Neutral,1642,3514
+School of Planning & Architecture: Vijayawada,Vijayawada,Andhra Pradesh,"Architecture (5 Years, Bachelor of Architecture)",DASA-Non CIWG,OPEN,Gender-Neutral,9956,9956
+School of Planning & Architecture: Vijayawada,Vijayawada,Andhra Pradesh,"Planning (4 Years, Bachelor of Planning)",DASA-CIWG,OPEN,Gender-Neutral,7689,7689
+University of Hyderabad,Hyderabad,Telangana,"Computer Science and Engineering (5 Years, Bachelor and Master of Technology (Dual Degree))",DASA-CIWG,OPEN,Gender-Neutral,192322,459615,74,49.36,1-100
+"Jawaharlal Nehru University, Delhi",New Delhi,Delhi,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,156172,584509,101-150,,101-150
+"Puducherry Technological University, Puducherry",Puducherry,Pondicherry,"Computer Science and Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,612144,612144
+"Gautam Buddha University, Greater Noida",Greater Noida,Uttar Pradesh,"Integrated B. Tech. - M. Tech in Computer Science & Engineering (5 Years, Integrated B. Tech. and M. Tech.)",DASA-CIWG,OPEN,Gender-Neutral,792983,792983
+Indian Maritime University - Visakhapatnam Campus,Visakhapatnam,Andhra Pradesh,"Naval Architecture and Ocean Engineering for DASA- CIWG (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,582932,582932
+"Manipal Institute of Technology, Manipal",Manipal,Karnataka,"Aeronautical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,310390,909523,59,52.55,1-100
+"Pandit Deendayal Energy University, Gandhinagar",Gandhinagar,Gujarat,"Chemical Engineering (4 Years, Bachelor of Technology)",DASA-CIWG,OPEN,Gender-Neutral,342862,342862
+</script>
+
+<script>
+  /* ---- segmented pill ---- */
+  const nav = document.getElementById('nav');
+  const pill = document.getElementById('activePill');
+  const navButtons = [...nav.querySelectorAll('.gbtn')];
+  function moveToBtn(btn) {
+    pill.style.width = btn.offsetWidth + 'px';
+    pill.style.transform = `translateX(${btn.offsetLeft}px)`;
+  }
+  window.addEventListener('load', () => moveToBtn(nav.querySelector('.active')));
+  window.addEventListener('resize', () => moveToBtn(nav.querySelector('.active')));
+
+  /* ---- starfield ---- */
+  (function() {
+    const canvas = document.getElementById('stars');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    const density = 0.00075;
+    const NEAR_Z = 2.0;   
+    const FAR_Z  = 9.0;   
+    function resize() {
+      canvas.width = innerWidth; canvas.height = innerHeight;
+      const n = Math.floor(innerWidth * innerHeight * density);
+      stars = Array.from({length: n}, () => ({
+        x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+        r: Math.random()*1.1 + 0.3,
+        o: Math.random()*0.5 + 0.5,
+        t: 0.5 + Math.random()*0.5,
+        reveal: Math.random(),
+        layer: Math.random(),
+        vx: (Math.random()-0.5)*0.04,
+        vy: (Math.random()-0.5)*0.04,
+        tint: Math.random() < 0.12 ? (Math.random() < 0.5 ? [180,210,255] : [255,225,190]) : [255,255,255]
+      }));
+    }
+    resize();
+    addEventListener('resize', resize);
+
+    const nebulae = Array.from({length: 5}, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 220 + Math.random()*260,
+      hue: 210 + Math.random()*60,
+      reveal: 0.35 + Math.random()*0.35,
+      layer: 0.2 + Math.random()*0.3
+    }));
+
+    const ease3 = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+    let smoothDepth = 1, lastT = performance.now();
+
+    (function render() {
+      const camZ = (window.__camZ != null) ? window.__camZ : FAR_Z;
+      const rawDepth = Math.max(0, Math.min(1, (camZ - NEAR_Z) / (FAR_Z - NEAR_Z)));
+      const nowT = performance.now();
+      const dt = Math.min(0.05, (nowT - lastT) / 1000); lastT = nowT;
+      smoothDepth += (rawDepth - smoothDepth) * Math.min(1, dt * 6);
+      const depth = ease3(smoothDepth);
+
+      const t = nowT * 0.001;
+      const cx = canvas.width * 0.5, cy = canvas.height * 0.5;
+      const pull = (1 - depth);
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      nebulae.forEach(n => {
+        const a = Math.max(0, depth - n.reveal) * 0.22;
+        if (a <= 0.005) return;
+        const px = (n.x * canvas.width - cx) * (1 - pull * 0.18 * (1 - n.layer)) + cx;
+        const py = (n.y * canvas.height - cy) * (1 - pull * 0.18 * (1 - n.layer)) + cy;
+        const dx = Math.sin(t * 0.05 + n.r) * 12;
+        const dy = Math.cos(t * 0.04 + n.r) * 10;
+        const x = px + dx, y = py + dy;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, n.r);
+        g.addColorStop(0, `hsla(${n.hue},80%,60%,${a})`);
+        g.addColorStop(1, `hsla(${n.hue},80%,40%,0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(x - n.r, y - n.r, n.r*2, n.r*2);
+      });
+      ctx.restore();
+
+      const now = t;
+      stars.forEach(s => {
+        const statesBoost = document.querySelector('.gbtn.active')?.dataset.i === '0' ? 0.55 : 0;
+        const presence = Math.max(0, Math.min(1, (depth - s.reveal) * 2.5 + 0.35 + statesBoost));
+        if (presence <= 0.02) return;
+        const parX = (s.x - cx) * pull * 0.12 * s.layer;
+        const parY = (s.y - cy) * pull * 0.12 * s.layer;
+        let dx = (s.x + s.vx * t * 60) % canvas.width;
+        let dy = (s.y + s.vy * t * 60) % canvas.height;
+        if (dx < 0) dx += canvas.width;
+        if (dy < 0) dy += canvas.height;
+        const x = dx + parX, y = dy + parY;
+        const tw = 0.5 + Math.abs(Math.sin(now / s.t) * 0.5);
+        const o = tw * presence;
+        ctx.beginPath();
+        ctx.arc(x, y, s.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(${s.tint[0]},${s.tint[1]},${s.tint[2]},${o})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(render);
+    })();
+  })();
+
+  /* ---- shooting stars ---- */
+  (function() {
+    const svg = document.getElementById('shooting');
+    function startPoint() {
+      const side = Math.floor(Math.random()*4);
+      const off = Math.random()*innerWidth;
+      if (side===0) return {x:off,y:0,angle:45};
+      if (side===1) return {x:innerWidth,y:off,angle:135};
+      if (side===2) return {x:off,y:innerHeight,angle:225};
+      return {x:0,y:off,angle:315};
+    }
+    function spawn(trail, minDelay, maxDelay) {
+      const sp = startPoint();
+      const speed = 10 + Math.random()*20;
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('height','1');
+      rect.setAttribute('fill', `url(#${trail})`);
+      svg.appendChild(rect);
+      let x = sp.x, y = sp.y, d = 0;
+      function step() {
+        x += speed * Math.cos(sp.angle * Math.PI/180);
+        y += speed * Math.sin(sp.angle * Math.PI/180);
+        d += speed;
+        const scale = 1 + d/100;
+        const w = 10 * scale;
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', w);
+        rect.setAttribute('transform', `rotate(${sp.angle}, ${x + w/2}, ${y + 0.5})`);
+        if (x < -20 || x > innerWidth+20 || y < -20 || y > innerHeight+20) {
+          rect.remove();
+          setTimeout(() => spawn(trail, minDelay, maxDelay), minDelay + Math.random()*(maxDelay-minDelay));
+          return;
+        }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    spawn('trail-a', 1200, 4200);
+    setTimeout(() => spawn('trail-b', 2200, 5200), 800);
+    setTimeout(() => spawn('trail-c', 3000, 6000), 1600);
+  })();
+</script>
+
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js"></script>
+<script type="module">
+import * as THREE from 'three';
+
+const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
+const isMobile = () => window.innerWidth <= 768;
+
+const STATES = ["Andhra Pradesh","Assam","Bihar","Chhattisgarh","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu & Kashmir","Ladakh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Odisha","Punjab","Rajasthan","Tamil Nadu","Telangana","Tripura","UTs","Uttar Pradesh","West Bengal"];
+const STATE_COORDS = {"Andhra Pradesh":[15.9,79.7],"Assam":[26.2,92.9],"Bihar":[25.6,85.1],"Chhattisgarh":[21.3,81.9],"Delhi":[28.7,77.1],"Goa":[15.3,74.0],"Gujarat":[22.3,71.2],"Haryana":[29.1,76.1],"Himachal Pradesh":[31.1,77.2],"Jammu & Kashmir":[34.0,76.6],"Ladakh":[34.5,78.0],"Jharkhand":[23.6,85.3],"Karnataka":[15.3,75.7],"Kerala":[10.9,76.3],"Madhya Pradesh":[23.5,77.3],"Maharashtra":[19.7,75.7],"Odisha":[20.9,85.1],"Punjab":[31.1,75.3],"Rajasthan":[27.0,74.2],"Tamil Nadu":[11.1,78.7],"Telangana":[17.4,79.0],"Tripura":[23.9,91.9],"UTs":[30.7,76.8],"Uttar Pradesh":[27.1,80.4],"West Bengal":[22.9,87.9]};
+const statuses = {};
+const preferredOrder = [];
+function ordSuffix(n){const s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+function normName(n){return (n||"").toLowerCase().replace(/&/g,"and").replace(/\bnct of\b/g,"").replace(/\borissa\b/g,"odisha").replace(/[^a-z]/g,"").trim();}
+function latLon(lat,lon,r){const phi=((90-lat)*Math.PI)/180,theta=((lon+180)*Math.PI)/180;return new THREE.Vector3(-r*Math.sin(phi)*Math.cos(theta),r*Math.cos(phi),r*Math.sin(phi)*Math.sin(theta));}
+
+function updateStats(){
+  let pref=0, black=0;
+  document.querySelectorAll('.stitem').forEach(el=>{
+    const s=statuses[el.dataset.state]||'neutral';
+    el.classList.remove('preferred','blacklisted');
+    if(s!=='neutral') el.classList.add(s);
+    if(s==='preferred') pref++; else if(s==='blacklisted') black++;
+    const badge=el.querySelector('.badge');
+    const rankEl=el.querySelector('.rank');
+    if(s==='preferred'){
+      const idx=preferredOrder.indexOf(el.dataset.state);
+      const rank=idx>=0?idx+1:0;
+      if(rankEl) rankEl.textContent=rank?ordSuffix(rank):'';
+      if(badge) badge.textContent='Choice';
+    } else {
+      if(rankEl) rankEl.textContent='';
+      if(badge) badge.textContent = s==='blacklisted'?'Blocked':'Tap';
+    }
+  });
+  const total=document.querySelectorAll('.stitem').length;
+  const ep=document.getElementById('ct-preferred'); if(ep) ep.textContent=pref;
+  const eb=document.getElementById('ct-blacklisted'); if(eb) eb.textContent=black;
+  const en=document.getElementById('ct-neutral'); if(en) en.textContent=Math.max(0,total-pref-black);
+}
+(function buildStateList(){
+  const list=document.getElementById('sp-list');if(!list) return;
+  [...STATES].sort((a,b)=>a.localeCompare(b)).forEach(name=>{
+    const b=document.createElement('button');
+    b.className='stitem';b.dataset.state=name;
+    b.innerHTML=`<span class="dot"></span><span class="rank"></span><span class="nm">${name}</span><span class="badge">Tap</span>`;
+    b.addEventListener('click',()=>cycleState(name));
+    list.appendChild(b);
+  });
+})();
+(function setupSearch(){
+  const input=document.getElementById('sp-search');
+  const wrap=input&&input.parentElement;
+  const clear=document.getElementById('sp-clear');
+  const empty=document.getElementById('sp-empty');
+  if(!input) return;
+  function apply(){
+    const q=input.value.trim().toLowerCase();
+    wrap.classList.toggle('has-value', q.length>0);
+    let shown=0;
+    document.querySelectorAll('#sp-list .stitem').forEach(el=>{
+      const match=!q || el.dataset.state.toLowerCase().includes(q);
+      el.style.display=match?'':'none';
+      if(match) shown++;
+    });
+    if(empty) empty.hidden = shown>0;
+  }
+  input.addEventListener('input',apply);
+  clear.addEventListener('click',()=>{input.value='';apply();input.focus();});
+})();
+
+function cycleState(name){
+  const cur=statuses[name]||'neutral';
+  const next=cur==='neutral'?'preferred':cur==='preferred'?'blacklisted':'neutral';
+  const i=preferredOrder.indexOf(name);
+  if(cur==='preferred' && i>=0) preferredOrder.splice(i,1);
+  if(next==='preferred' && preferredOrder.indexOf(name)===-1) preferredOrder.push(name);
+  if(next==='neutral') delete statuses[name]; else statuses[name]=next;
+  updateBorders(); updateStats();
+}
+updateStats();
+
+const sphereSegs = isMobile()?32:64;
+const dprCap = isMobile()?1.5:2;
+const canvas=document.getElementById('globe-canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouch,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,dprCap));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setClearColor(0x000000, 0);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42,window.innerWidth/window.innerHeight,0.1,100);
+
+scene.add(new THREE.AmbientLight(0x2a3a5a,0.55));
+const sun=new THREE.DirectionalLight(0xfff4e0,1.65);sun.position.set(5,3,5);scene.add(sun);
+const rim=new THREE.DirectionalLight(0x3a6bff,0.6);rim.position.set(-4,-2,-3);scene.add(rim);
+const nightFill=new THREE.DirectionalLight(0x16407a,0.45);nightFill.position.set(-5,-2,-4);scene.add(nightFill);
+
+const earthMat=new THREE.MeshPhongMaterial({specular:new THREE.Color(0x6f9bd6),shininess:78,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+const globe=new THREE.Mesh(new THREE.SphereGeometry(1,sphereSegs,sphereSegs),earthMat);
+scene.add(globe);
+new THREE.TextureLoader().load("https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg",t=>{
+  earthMat.map=t;earthMat.needsUpdate=true;
+});
+new THREE.TextureLoader().load("https://raw.githubusercontent.com/turban/webgl-earth/master/images/water_4k.png",t=>{
+  earthMat.specularMap=t;earthMat.needsUpdate=true;
+});
+
+const SUN_DIR=new THREE.Vector3(5,3,5).normalize();
+const nightMat=new THREE.ShaderMaterial({
+  transparent:true,
+  blending:THREE.AdditiveBlending,
+  depthWrite:false,
+  uniforms:{ tNight:{value:null}, uSunDir:{value:SUN_DIR.clone()}, uIntensity:{value:0.0} },
+  vertexShader:`varying vec2 vUv; varying vec3 vNormalW; void main(){ vUv=uv; vNormalW=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader:`uniform sampler2D tNight; uniform vec3 uSunDir; uniform float uIntensity; varying vec2 vUv; varying vec3 vNormalW; void main(){ float ndl=dot(normalize(vNormalW),normalize(uSunDir)); float night=smoothstep(0.12,-0.30,ndl); vec3 lights=texture2D(tNight,vUv).rgb; lights*=vec3(1.0,0.92,0.70); gl_FragColor=vec4(lights*night*uIntensity,1.0); }`
+});
+const nightLights=new THREE.Mesh(new THREE.SphereGeometry(1.001,sphereSegs,sphereSegs),nightMat);
+globe.add(nightLights);
+new THREE.TextureLoader().load("https://unpkg.com/three-globe/example/img/earth-night.jpg",t=>{
+  t.anisotropy=4;nightMat.uniforms.tNight.value=t;nightMat.uniforms.uIntensity.value=0.9;nightMat.needsUpdate=true;
+});
+
+const cloudMat=new THREE.MeshPhongMaterial({transparent:true,opacity:0.0,depthWrite:false,shininess:4,specular:new THREE.Color(0x111111)});
+const clouds=new THREE.Mesh(new THREE.SphereGeometry(1.006,sphereSegs,sphereSegs),cloudMat);
+scene.add(clouds);
+new THREE.TextureLoader().load("https://raw.githubusercontent.com/turban/webgl-earth/master/images/fair_clouds_4k.png",t=>{
+  t.anisotropy=4;cloudMat.map=t;cloudMat.alphaMap=t;cloudMat.opacity=0.6;cloudMat.needsUpdate=true;
+});
+
+const atmoMesh=new THREE.Mesh(new THREE.SphereGeometry(1.028,sphereSegs,sphereSegs),new THREE.MeshPhongMaterial({color:0x5599ff,transparent:true,opacity:0.16,side:THREE.BackSide}));
+scene.add(atmoMesh);
+const atmoOuter=new THREE.Mesh(new THREE.SphereGeometry(1.11,sphereSegs,sphereSegs),new THREE.MeshBasicMaterial({color:0x3a7bff,transparent:true,opacity:0.07,side:THREE.BackSide}));
+scene.add(atmoOuter);
+const atmoOuter2=new THREE.Mesh(new THREE.SphereGeometry(1.24,sphereSegs,sphereSegs),new THREE.MeshBasicMaterial({color:0x1a4bd6,transparent:true,opacity:0.03,side:THREE.BackSide}));
+scene.add(atmoOuter2);
+
+const markerGroup=new THREE.Group();scene.add(markerGroup);
+const stateMarkers={};
+STATES.forEach(name=>{
+  const c=STATE_COORDS[name];if(!c)return;
+  const pos=latLon(c[0],c[1],1.03);
+  const dot=new THREE.Mesh(new THREE.CircleGeometry(0.019,16),new THREE.MeshBasicMaterial({color:0x4f7cff,transparent:true,opacity:0,side:THREE.DoubleSide,depthTest:false}));
+  dot.position.copy(pos);dot.lookAt(0,0,0);dot.rotateY(Math.PI);dot.userData.stateName=name;dot.renderOrder=5;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.022,0.029,16),new THREE.MeshBasicMaterial({color:0x4f7cff,transparent:true,opacity:0,side:THREE.DoubleSide,depthTest:false}));
+  ring.position.copy(pos);ring.lookAt(0,0,0);ring.rotateY(Math.PI);ring.renderOrder=5;
+  markerGroup.add(dot,ring);stateMarkers[name]={dot,ring};
+});
+
+const borderGroup=new THREE.Group();scene.add(borderGroup);
+const stateBorders={},stateMeshes={};
+const BORDER_R=1.012,FILL_R=1.008;
+function addBorderRing(coords,name){
+  const pts=coords.map(c=>latLon(c[1],c[0],BORDER_R));
+  if(pts.length<2)return;
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.18,depthTest:false});
+  const line=new THREE.LineLoop(geo,mat);line.renderOrder=3;borderGroup.add(line);
+  const k=normName(name);(stateBorders[k]=stateBorders[k]||[]).push(line);
+}
+function addStateMesh(coords,name){
+  if(!coords||coords.length<3)return;
+  let sumLat=0,sumLon=0;for(const c of coords){sumLon+=c[0];sumLat+=c[1];}
+  const cPt=latLon(sumLat/coords.length,sumLon/coords.length,FILL_R);
+  const verts=[];
+  for(let i=0;i<coords.length-1;i++){
+    const p1=latLon(coords[i][1],coords[i][0],FILL_R);
+    const p2=latLon(coords[i+1][1],coords[i+1][0],FILL_R);
+    verts.push(cPt.x,cPt.y,cPt.z,p1.x,p1.y,p1.z,p2.x,p2.y,p2.z);
+  }
+  if(!verts.length)return;
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  const mat=new THREE.MeshBasicMaterial({color:0x22c55e,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,depthTest:false});
+  const mesh=new THREE.Mesh(geo,mat);mesh.renderOrder=2;borderGroup.add(mesh);
+  const k=normName(name);mesh.userData.stateKey=k;(stateMeshes[k]=stateMeshes[k]||[]).push(mesh);
+}
+function processPolygon(poly,name){poly.forEach(r=>addBorderRing(r,name));if(poly[0]&&poly[0].length>=3)addStateMesh(poly[0],name);}
+function addLadakhFromGeoJSON(){
+  return fetch("https://cdn.jsdelivr.net/gh/udit-001/india-maps-data@master/geojson/states/ladakh.geojson")
+    .then(r=>r.json()).then(gj=>{
+      (gj.features||[]).forEach(f=>{
+        const g=f.geometry;if(!g)return;
+        if(g.type==='Polygon')processPolygon(g.coordinates,"Ladakh");
+        else if(g.type==='MultiPolygon')g.coordinates.forEach(p=>processPolygon(p,"Ladakh"));
+      });
+      const k=normName("Ladakh");
+      (stateBorders[k]||[]).forEach(l=>{l.renderOrder=6;});
+      (stateMeshes[k]||[]).forEach(m=>{m.renderOrder=5;});
+    }).catch(e=>console.warn("Ladakh load failed",e));
+}
+fetch("https://raw.githubusercontent.com/geohacker/india/master/state/india_telengana.geojson").then(r=>r.json()).then(gj=>{
+  (gj.features||[]).forEach(f=>{
+    const name=(f.properties&&(f.properties.NAME_1||f.properties.name))||"";
+    const g=f.geometry;if(!g)return;
+    if(g.type==='Polygon')processPolygon(g.coordinates,name);
+    else if(g.type==='MultiPolygon')g.coordinates.forEach(p=>processPolygon(p,name));
+  });
+  addLadakhFromGeoJSON().then(updateBorders);
+}).catch(e=>{console.warn(e);addLadakhFromGeoJSON().then(updateBorders);});
+
+function updateBorders(){
+  STATES.forEach(name=>{
+    const s=statuses[name]||'neutral',k=normName(name);
+    const lines=stateBorders[k];
+    if(lines){const style=s==='preferred'?[0x22c55e,1.0]:s==='blacklisted'?[0xef4444,1.0]:[0xffffff,0.18];
+      lines.forEach(l=>{l.material.color.setHex(style[0]);l.material.opacity=style[1];l.material.needsUpdate=true;});}
+    const meshes=stateMeshes[k];
+    if(meshes){const col=s==='blacklisted'?0xef4444:0x22c55e,op=s==='neutral'?0:0.55;
+      meshes.forEach(m=>{m.material.color.setHex(col);m.material.opacity=op;m.material.needsUpdate=true;});}
+  });
+}
+
+const INDIA_ROT_X=0.385,INDIA_ROT_Y=3.1;
+let rotX=INDIA_ROT_X,rotY=INDIA_ROT_Y,tRotX=INDIA_ROT_X,tRotY=INDIA_ROT_Y;
+let autoSpin=false;
+let quotaMode=false;
+
+function applyLayout(){
+  const mobile = isMobile();
+  globe.position.set(mobile?0:0.55, mobile?0.35:0, 0);
+  clouds.position.copy(globe.position);
+  atmoMesh.position.copy(globe.position);
+  atmoOuter.position.copy(globe.position);
+  atmoOuter2.position.copy(globe.position);
+  markerGroup.position.copy(globe.position);
+  borderGroup.position.copy(globe.position);
+}
+applyLayout();
+camera.position.z = 9;
+
+const raycaster=new THREE.Raycaster(),mouse2=new THREE.Vector2();
+const tt=document.getElementById('map-tooltip');
+const keyToState={};STATES.forEach(n=>{keyToState[normName(n)]=n;});
+
+function pickStateAt(clientX,clientY){
+  const r=canvas.getBoundingClientRect();
+  if(clientX<r.left||clientX>r.right||clientY<r.top||clientY>r.bottom)return null;
+  mouse2.x=((clientX-r.left)/r.width)*2-1;mouse2.y=-((clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(mouse2,camera);
+  const meshList=[];Object.values(stateMeshes).forEach(arr=>arr.forEach(m=>meshList.push(m)));
+  const mHits=raycaster.intersectObjects(meshList);
+  if(mHits.length){const k=mHits[0].object.userData.stateKey;const n=keyToState[k];if(n)return n;}
+  return null;
+}
+function showTooltip(x,y,name,s){
+  if(isTouch) return;
+  const L={neutral:'Click to prefer',preferred:'✓ Preferred — click to blacklist',blacklisted:'✗ Blacklisted — click to clear'};
+  tt.querySelector('.tt-state').textContent=name;
+  tt.querySelector('.tt-hint').textContent=L[s];
+  tt.style.display='block';tt.style.left=(x+18)+'px';tt.style.top=(y-50)+'px';
+}
+function hideTooltip(){tt.style.display='none';}
+
+if(!isTouch){
+  window.addEventListener('mousemove',e=>{
+    if(quotaMode){hideTooltip();canvas.style.cursor='default';return;}
+    const name=pickStateAt(e.clientX,e.clientY);
+    if(name){showTooltip(e.clientX,e.clientY,name,statuses[name]||'neutral');canvas.style.cursor='pointer';}
+    else{hideTooltip();canvas.style.cursor='default';}
+  });
+}
+
+let downX=0,downY=0,downT=0;
+canvas.addEventListener('pointerdown',e=>{downX=e.clientX;downY=e.clientY;downT=performance.now();});
+canvas.addEventListener('pointerup',e=>{
+  if(quotaMode) return;
+  const dx=e.clientX-downX, dy=e.clientY-downY, dt=performance.now()-downT;
+  if(Math.hypot(dx,dy)>10 || dt>600) return;
+  const name=pickStateAt(e.clientX,e.clientY);
+  if(name) cycleState(name);
+});
+
+(function animate(){
+  requestAnimationFrame(animate);
+  if(autoSpin)tRotY+=0.0015;
+  rotX+=(tRotX-rotX)*0.08;rotY+=(tRotY-rotY)*0.08;
+  globe.rotation.set(rotX,rotY,0);
+  clouds.rotation.set(rotX,rotY+performance.now()*0.000028,0);
+  atmoMesh.rotation.set(rotX,rotY,0);
+  markerGroup.rotation.set(rotX,rotY,0);
+  borderGroup.rotation.set(rotX,rotY,0);
+  window.__camZ = camera.position.z;
+  renderer.render(scene,camera);
+})();
+
+function getViewSize(){
+  const w=window.innerWidth;
+  const h=isMobile()?Math.round(window.innerHeight*0.5):window.innerHeight;
+  return {w,h};
+}
+let resizeT;
+function onResize(){
+  clearTimeout(resizeT);
+  resizeT=setTimeout(()=>{
+    const {w,h}=getViewSize();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,dprCap));
+    renderer.setSize(w,h,false);
+    canvas.style.width=w+'px';
+    canvas.style.height=h+'px';
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+    applyLayout();
+  },80);
+}
+window.addEventListener('resize',onResize);
+window.addEventListener('orientationchange',onResize);
+onResize();
+document.addEventListener('gesturestart',e=>e.preventDefault());
+
+function setOverlayVisible(v){
+  if(typeof borderGroup!=='undefined') borderGroup.visible=v;
+  if(typeof markerGroup!=='undefined') markerGroup.visible=v;
+}
+
+/* ========================================================================
+   CENTRAL NAVIGATION SYSTEM
+   ======================================================================== */
+let currentView = 0; // 0=States, 1=Quota, 2=Programs, 3=Results
+let selectedQuotas = new Set();
+let userRank = null;
+
+function switchView(target) {
+  if (target === currentView) return;
+  
+  navButtons.forEach(b => b.classList.remove('active'));
+  const activeBtn = document.querySelector(`.nav .gbtn[data-i="${target}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    moveToBtn(activeBtn);
+  }
+
+  const statepanel = document.getElementById('statepanel');
+  const qstage = document.getElementById('qstage');
+  const pstage = document.getElementById('pstage');
+  const rstage = document.getElementById('rstage');
+  const qbar = document.getElementById('qbar');
+  const spBack = document.getElementById('sp-back');
+  
+  // Hide everything first
+  statepanel.classList.add('hidden');
+  statepanel.style.pointerEvents = 'none';
+  qstage.classList.remove('show', 'tabs-ready');
+  pstage.classList.remove('show');
+  rstage.classList.remove('show');
+  qbar.classList.remove('show');
+
+  if (target === 0) {
+    // --- STATES VIEW ---
+    spBack.classList.remove('show');
+    canvas.classList.remove('quota-blur');
+    autoSpin = false;
+    quotaMode = false;
+    setOverlayVisible(true);
+
+    statepanel.classList.remove('hidden');
+    statepanel.style.pointerEvents = '';
+
+    const TARGET_Y = 3.1;
+    const TWO_PI = Math.PI * 2;
+    rotY = ((rotY % TWO_PI) + TWO_PI) % TWO_PI;
+    let t = ((TARGET_Y % TWO_PI) + TWO_PI) % TWO_PI;
+    if (t - rotY > Math.PI) t -= TWO_PI;
+    if (t - rotY < -Math.PI) t += TWO_PI;
+    tRotY = t;
+    tRotX = INDIA_ROT_X;
+
+    gsap.to(camera.position, { x: 0, y: 0, z: isMobile()?2.55:1.95, duration: 1.5, ease: 'power3.inOut', onUpdate: () => camera.lookAt(0,0,0) });
+
+  } else if (target === 1) {
+    // --- QUOTA VIEW ---
+    spBack.classList.add('show');
+    canvas.classList.add('quota-blur');
+    autoSpin = true;
+    quotaMode = true;
+    setOverlayVisible(false);
+
+    qstage.classList.add('show');
+    qbar.classList.add('show');
+    setTimeout(() => { if (currentView === 1) qstage.classList.add('tabs-ready'); }, 950);
+
+    const targetDiameterPx = 200;
+    const fovRad = camera.fov * Math.PI / 180;
+    const targetZ = window.innerHeight / (targetDiameterPx * Math.tan(fovRad/2));
+    gsap.to(camera.position, { x: 0, y: 0, z: targetZ, duration: 2.0, ease: 'power3.inOut', onUpdate: () => camera.lookAt(0,0,0) });
+
+  } else if (target === 2) {
+    // --- PROGRAMS & RANK VIEW ---
+    spBack.classList.add('show');
+    canvas.classList.add('quota-blur'); 
+    autoSpin = true;
+    quotaMode = true; 
+    setOverlayVisible(false);
+
+    pstage.classList.add('show');
+    
+    // Push Earth far to the right and pull back deep into space
+    gsap.to(camera.position, { x: -3.5, y: 1.5, z: 8.5, duration: 1.5, ease: 'power3.inOut', onUpdate: () => camera.lookAt(0,0,0) });
+
+  } else if (target === 3) {
+    // --- RESULTS VIEW ---
+    spBack.classList.add('show');
+    canvas.classList.add('quota-blur'); 
+    autoSpin = false; // Pause spin for stable reading
+    quotaMode = true; 
+    setOverlayVisible(false);
+
+    rstage.classList.add('show');
+    renderResults(); // Populate table based on inputs
+    
+    // Frame Earth perfectly in the center behind the glass
+    gsap.to(camera.position, { x: 0, y: 0, z: 4.5, duration: 1.5, ease: 'power3.inOut', onUpdate: () => camera.lookAt(0,0,0) });
+  }
+
+  currentView = target;
+}
+
+// Wire up all navigation buttons
+navButtons.forEach(btn => {
+  btn.addEventListener('click', () => switchView(parseInt(btn.dataset.i)));
+});
+
+document.getElementById('sp-continue').addEventListener('click', () => switchView(1));
+document.getElementById('sp-back').addEventListener('click', () => switchView(0));
+document.getElementById('qb-cta').addEventListener('click', () => {
+  if (document.getElementById('qbar').classList.contains('ready')) {
+    selectedQuotas = new Set();
+    if (document.querySelector('.qzone[data-cat="ciwg"]').classList.contains('selected')) selectedQuotas.add('CIWG');
+    if (document.querySelector('.qzone[data-cat="nonciwg"]').classList.contains('selected')) selectedQuotas.add('Non CIWG');
+    switchView(2);
+  } else {
+    const bar = document.getElementById('qbar');
+    gsap.fromTo(bar, {x: -10}, {x: 0, duration: 0.4, ease: 'elastic.out(1, 0.3)'});
+  }
+});
+document.getElementById('pstage-cta').addEventListener('click', () => {
+  userRank = parseInt(document.getElementById('rank-input').value) || null;
+  switchView(3);
+});
+document.getElementById('rstage-back').addEventListener('click', () => switchView(2));
+
+// Initial camera entry
+gsap.to(camera.position, {x: 0, y: 0, z: isMobile()?2.55:1.95, duration:1.8, ease:'power2.inOut'});
+
+
+/* ============== CSV PARSER & LOGIC (FROM YOUR FILE) ============== */
+function parseCSV(text){
+  const rows=[];let field='',row=[],inQ=false;
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    }else{
+      if(c==='"')inQ=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+  }
+  if(field.length>0||row.length>0){row.push(field);rows.push(row);}
+  if(!rows.length)return [];
+  const headers=rows[0].map(h=>h.trim());
+  return rows.slice(1).filter(r=>r.length>1&&r.some(v=>v.trim()!=='')).map(r=>{
+    const o={};headers.forEach((h,idx)=>{o[h]=(r[idx]!==undefined?r[idx].trim():'');});return o;
+  });
+}
+
+function toInt(v){ if(v===undefined||v===null)return NaN; const n=parseInt(String(v).replace(/[^0-9-]/g,''),10); return n; }
+function quotaLabel(q){ q=(q||'').toLowerCase(); if(q.includes('non'))return 'DASA'; if(q.includes('ciwg'))return 'CIWG'; return ''; }
+function shortProgram(name){ if(!name)return ''; const i=name.indexOf(' ('); return (i>=0?name.slice(0,i):name).trim(); }
+
+function deriveRows(raw){
+  const out=[];
+  raw.forEach(r=>{
+    const opening=toInt(r['Opening Rank']);
+    const closing=toInt(r['Closing Rank']);
+    if(isNaN(opening)||isNaN(closing))return; // skip silently
+    const nirfRaw=r['NIRF_Rank_2025'];
+    const nirfRank=(nirfRaw&&nirfRaw.trim()!=='')?toInt(nirfRaw):NaN;
+    const placeRating=r['Placement Rating'];
+    const overallRating=r['Overall Rating'];
+    const hasPlacementData=!!((placeRating&&placeRating.trim()!=='')||(overallRating&&overallRating.trim()!==''));
+    const progFull=r['Academic Program Name']||'';
+    out.push({
+      institute:r['Institute']||'Unknown institute',
+      city:r['City']||'',
+      state:(r['State']||'').trim(),
+      programFull:progFull,
+      program:shortProgram(progFull),
+      quota:quotaLabel(r['Quota']),
+      gender:r['Gender']||'',
+      openingRank:opening,
+      closingRank:closing,
+      nirfRank:isNaN(nirfRank)?null:nirfRank,
+      hasPlacementData:hasPlacementData,
+      raw:r
+    });
+  });
+  return out;
+}
+
+const CATEGORIES=[
+  {key:'computing',label:'Computing & AI',kw:['computer','cs ','cse','artificial','ai)','ai ',' ai','data','software','information','it-','machine learning','computing','cyber','financial technology']},
+  {key:'electronics',label:'Electronics',kw:['electronics','ece','eee','electrical','vlsi','communication','instrumentation','telecommunication','microelectronics']},
+  {key:'mechanical',label:'Mechanical',kw:['mechanical','manufacturing','production','aerospace','automotive','thermal','aeronautical','mechatronics','industrial design']},
+  {key:'civil',label:'Civil & Infra',kw:['civil','structural','environmental','construction','urban','architecture','planning']},
+  {key:'other',label:'Other',kw:[]}
+];
+function categorize(program){
+  const p=(' '+program.toLowerCase()+' ');
+  for(const cat of CATEGORIES){
+    if(cat.key==='other')continue;
+    if(cat.kw.some(k=>p.includes(k)))return cat.key;
+  }
+  return 'other';
+}
+
+const STATE_NAME_NORM_CSV={"Jammu and Kashmir":"Jammu & Kashmir","Uttaranchal":"Uttarakhand","Orissa":"Odisha","Pondicherry":"Puducherry","Puducherry":"Puducherry","Dādra and Nagar Haveli and Damān and Diu":"UTs","Dadra and Nagar Haveli":"UTs","Daman and Diu":"UTs","Andaman and Nicobar":"UTs","Andaman and Nicobar Islands":"UTs","Chandigarh":"UTs","Lakshadweep":"UTs","Ladakh":"UTs"};
+function normalizeState(s){ return STATE_NAME_NORM_CSV[s] || s; }
+
+let DERIVED=[];
+let ALL_PROGRAMS=[];
+
+function initCSVData() {
+  const embed=document.getElementById('embedded-csv');
+  const csvText=embed?embed.textContent.trim():'';
+  if(csvText && csvText.length>50) {
+    DERIVED = deriveRows(parseCSV(csvText));
+    buildPrograms();
+    renderBranches('');
+  }
+}
+
+function buildPrograms(){
+  ALL_PROGRAMS = [];
+  DERIVED.forEach(r=>{ 
+    if(r.program && !ALL_PROGRAMS.find(p=>p.name===r.program)){ 
+      ALL_PROGRAMS.push({name:r.program, cat:categorize(r.program)}); 
+    } 
+  });
+  ALL_PROGRAMS.sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function renderBranches(filter) {
+  filter=(filter||'').toLowerCase().trim();
+  const wrap=document.getElementById('branch-list');
+  let html='';
+  CATEGORIES.forEach(cat=>{
+    const items=ALL_PROGRAMS.filter(p=>p.cat===cat.key && (!filter || p.name.toLowerCase().includes(filter)));
+    if(!items.length) return;
+    html+=`<div class="ps-category"><div class="ps-cat-head"><span class="ps-cat-title">${cat.label}</span><button class="ps-select-all" type="button" data-cat="${cat.key}">Select all</button></div><div class="ps-cat-items">`;
+    items.forEach(p=>{
+      const sel=[...document.querySelectorAll('.ps-branch-pill.selected')].some(el => el.textContent === p.name);
+      html+=`<div class="ps-branch-pill${sel?' selected':''}" role="checkbox" tabindex="0" aria-checked="${sel?'true':'false'}" data-prog="${p.name.replace(/"/g,'&quot;')}">${p.name}</div>`;
+    });
+    html+='</div></div>';
+  });
+  if(!html) html='<div class="hint">No branches match your search.</div>';
+  wrap.innerHTML=html;
+
+  wrap.querySelectorAll('.ps-branch-pill').forEach(p=>{
+    const toggle=()=>{
+      p.classList.toggle('selected');
+      p.setAttribute('aria-checked', p.classList.contains('selected') ? 'true' : 'false');
+    };
+    p.addEventListener('click',toggle);
+    p.addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); } });
+  });
+  wrap.querySelectorAll('.ps-select-all').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const ck=b.getAttribute('data-cat');
+      const items=ALL_PROGRAMS.filter(p=>p.cat===ck && (!filter || p.name.toLowerCase().includes(filter)));
+      const allSel=items.every(it=>[...document.querySelectorAll('.ps-branch-pill.selected')].some(el => el.textContent === it.name));
+      items.forEach(it=>{
+        const el=[...wrap.querySelectorAll('.ps-branch-pill')].find(e=>e.textContent===it.name);
+        if(el){
+          if(allSel) el.classList.remove('selected');
+          else el.classList.add('selected');
+          el.setAttribute('aria-checked', el.classList.contains('selected') ? 'true' : 'false');
+        }
+      });
+    });
+  });
+}
+
+document.getElementById('branch-search').addEventListener('input', (e) => {
+  renderBranches(e.target.value);
+});
+
+/* ============== MATCHING ENGINE (FROM YOUR FILE) ============== */
+function classify(userRank, closing) {
+  if (userRank < closing * 0.85) return 'safe';
+  if (userRank <= closing * 1.10) return 'target';
+  if (userRank <= closing * 1.35) return 'ambitious';
+  return null;
+}
+
+function predict() {
+  const rank = userRank;
+  const userQuotas = new Set();
+  if (selectedQuotas.has('CIWG')) userQuotas.add('CIWG');
+  if (selectedQuotas.has('Non CIWG')) userQuotas.add('DASA'); // 'DASA' is how it's stored in DERIVED
+
+  const selectedBranches = [...document.querySelectorAll('.ps-branch-pill.selected')].map(el => el.textContent);
+  
+  const out = [];
+  DERIVED.forEach(r => {
+    const state = normalizeState(r.state);
+    
+    // Filter blacklisted states
+    if (statuses[state] === 'blacklisted') return;
+    
+    // Filter by quota
+    if (userQuotas.size > 0 && !userQuotas.has(r.quota)) return;
+    
+    // Filter by program
+    if (selectedBranches.length > 0 && !selectedBranches.includes(r.program)) return;
+    
+    const cat = classify(rank, r.closingRank);
+    if (!cat) return; // Doesn't fit safe/target/reach
+
+    const noData = (r.nirfRank === null && !r.hasPlacementData);
+    const catW = cat === 'safe' ? 300 : cat === 'target' ? 200 : 100;
+    const stateBoost = statuses[state] === 'preferred' ? 50 : 0;
+    const nirfBoost = r.nirfRank !== null ? Math.max(0, 100 - r.nirfRank) : 0;
+    const placeBoost = r.hasPlacementData ? 20 : 0;
+    
+    out.push({ ...r, category: cat, noData: noData, score: catW + stateBoost + nirfBoost + placeBoost });
+  });
+  
+  // Sort by best fit (score), putting noData rows at the bottom
+  out.sort((a, b) => {
+    if (a.noData && !b.noData) return 1;
+    if (!a.noData && b.noData) return -1;
+    return b.score - a.score;
+  });
+  
+  return out;
+}
+
+function renderResults() {
+  const tbody = document.getElementById('results-tbody');
+  const emptyState = document.getElementById('rstage-empty');
+  const filtersDiv = document.getElementById('rstage-filters');
+  
+  const rows = predict();
+  const selectedBranches = [...document.querySelectorAll('.ps-branch-pill.selected')].map(el => el.textContent);
+  
+  filtersDiv.innerHTML = `
+    <div class="rstage-filter-chip">Rank: <strong>${userRank ? userRank.toLocaleString('en-IN') : 'N/A'}</strong></div>
+    <div class="rstage-filter-chip">Quota: <strong>${[...selectedQuotas].join(' + ') || 'All'}</strong></div>
+    <div class="rstage-filter-chip">Branches: <strong>${selectedBranches.length}</strong></div>
+  `;
+  
+  tbody.innerHTML = '';
+  
+  if (rows.length === 0) {
+    emptyState.style.display = 'block';
+    document.querySelector('.rtable').style.display = 'none';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  document.querySelector('.rtable').style.display = 'table';
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    let probClass = 'prob-mod';
+    let probText = 'Reach';
+    
+    if (row.category === 'safe') {
+      probClass = 'prob-vhigh';
+      probText = 'Very High';
+    } else if (row.category === 'target') {
+      probClass = 'prob-high';
+      probText = 'High';
+    }
+
+    tr.innerHTML = `
+      <td class="clg-name">${row.institute}</td>
+      <td class="branch-name">${row.program}</td>
+      <td><span class="quota-tag">${row.quota === 'DASA' ? 'NON-CIWG' : 'CIWG'}</span></td>
+      <td>${row.openingRank.toLocaleString('en-IN')}</td>
+      <td>${row.closingRank.toLocaleString('en-IN')}</td>
+      <td class="${probClass}">${probText}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Initialize data immediately
+initCSVData();
+
+/* ============== Quota stage wiring (Selection logic) ============== */
+(function(){
+  const stage=document.getElementById('qstage');
+  const zones=[...stage.querySelectorAll('.qzone')];
+  const saarc=document.getElementById('qp-saarc');
+  const selVal=document.getElementById('qb-sel-val');
+  const amtVal=document.getElementById('qb-amt-val');
+  const bar=document.getElementById('qbar');
+  const cta=document.getElementById('qb-cta');
+  const z2Init=document.getElementById('qz2-init');
+  const elig=document.getElementById('qh-elig');
+  const sheet=document.getElementById('qsheet');
+  const scrim=document.getElementById('qscrim');
+  const sheetClose=document.getElementById('qsh-close');
+  
+  const USD_INR = 405413.24 / 4300; 
+  const selected=new Set();
+
+  const fmtUSD=n=>'$'+n.toLocaleString('en-US');
+  const fmtINR=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+
+  function update(){
+    z2Init.innerHTML = (saarc.checked?'$2,300':'$4,300')+'<small>at apply</small>';
+    if(selected.size===0){
+      selVal.textContent='none yet';
+      selVal.classList.add('empty');
+      amtVal.innerHTML='$0 <small>≈ ₹0</small>';
+      bar.classList.remove('ready');
+      cta.firstChild.textContent='Pick a quota ';
+      return;
+    }
+    
+    const ciwgFee = 1050;
+    const nonCiwgFee = saarc.checked ? 2300 : 4300;
+    let usd = 0;
+    const labels = [];
+    
+    if(selected.has('ciwg')) labels.push('CIWG');
+    if(selected.has('nonciwg')) labels.push('NON-CIWG'+(saarc.checked?' · SAARC':''));
+    
+    if (selected.has('ciwg') && selected.has('nonciwg')) {
+      usd = Math.max(ciwgFee, nonCiwgFee);
+    } else if (selected.has('ciwg')) {
+      usd = ciwgFee;
+    } else if (selected.has('nonciwg')) {
+      usd = nonCiwgFee;
+    }
+
+    selVal.classList.remove('empty');
+    selVal.textContent=labels.join('  +  ');
+    const refundNote = (selected.has('ciwg') && selected.has('nonciwg')) ? ' · refundable if CIWG' : '';
+    amtVal.innerHTML=fmtUSD(usd)+' <small>≈ '+fmtINR(usd*USD_INR)+refundNote+'</small>';
+    bar.classList.add('ready');
+    cta.firstChild.textContent='Continue ';
+  }
+  
+  zones.forEach(z=>{
+    z.addEventListener('click',()=>{
+      const cat=z.dataset.cat;
+      if(selected.has(cat)){ selected.delete(cat); z.classList.remove('selected'); }
+      else { selected.add(cat); z.classList.add('selected'); }
+      z.setAttribute('aria-pressed', z.classList.contains('selected') ? 'true' : 'false');
+      update();
+    });
+    z.addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter'){e.preventDefault();z.click();} });
+  });
+  saarc.addEventListener('change',update);
+
+  function openSheet(){ sheet.classList.add('show'); scrim.classList.add('show'); sheet.setAttribute('aria-hidden','false'); }
+  function closeSheet(){ sheet.classList.remove('show'); scrim.classList.remove('show'); sheet.setAttribute('aria-hidden','true'); }
+  elig && elig.addEventListener('click',openSheet);
+  sheetClose.addEventListener('click',closeSheet);
+  scrim.addEventListener('click',closeSheet);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet(); });
+
+  update();
+})();
+</script>
+</body>
+</html>
